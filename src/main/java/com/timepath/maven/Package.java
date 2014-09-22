@@ -28,12 +28,12 @@ import java.util.regex.Pattern;
  */
 public class Package {
 
-    private static final Logger       LOG       = Logger.getLogger(Package.class.getName());
-    private final        Set<Package> downloads = Collections.synchronizedSet(new HashSet<Package>());
+    private static final Logger LOG = Logger.getLogger(Package.class.getName());
+    private final Set<Package> downloads = Collections.synchronizedSet(new HashSet<Package>());
     /**
      * Download status
      */
-    public               long         progress  = -1, size = -1;
+    public long progress = -1, size = -1;
     private String name;
     /**
      * Maven coordinates
@@ -42,21 +42,19 @@ public class Package {
     /**
      * Base URL in maven repo
      */
-    private String  baseURL;
+    private String baseURL;
     private boolean locked;
     private boolean self;
-    private Node    pom;
+    private Node pom;
 
     /**
      * Instantiate a Package instance from an XML node
      *
-     * @param root
-     *         the root node
-     * @param context
-     *         the parent package
+     * @param root    the root node
+     * @param context the parent package
      */
     public static Package parse(Node root, Package context) {
-        if(root == null) {
+        if (root == null) {
             throw new IllegalArgumentException("The root node cannot be null");
         }
         Package p = new Package();
@@ -65,22 +63,22 @@ public class Package {
         LOG.log(Level.FINE, "{0}", pprint);
         p.name = XMLUtils.get(root, "name");
         p.gid = inherit(root, "groupId");
-        if(p.gid == null) { // invalid pom
+        if (p.gid == null) { // invalid pom
             LOG.log(Level.WARNING, "Invalid POM, no groupId");
             return null;
         }
         p.aid = XMLUtils.get(root, "artifactId");
         p.ver = inherit(root, "version");
-        if(p.ver == null) {
+        if (p.ver == null) {
             throw new UnsupportedOperationException("TODO: dependencyManagement/dependencies/dependency/version");
         }
-        if(context != null) {
+        if (context != null) {
             p.expand(context);
         }
         try {
             p.baseURL = MavenResolver.resolve(Coordinate.from(p.gid, p.aid, p.ver, null));
             LOG.log(Level.INFO, "Resolved to {0}", p.baseURL);
-        } catch(FileNotFoundException e) {
+        } catch (FileNotFoundException e) {
             LOG.log(Level.SEVERE, null, e);
         }
         return p;
@@ -88,7 +86,7 @@ public class Package {
 
     private static String inherit(Node root, String name) {
         String ret = XMLUtils.get(root, name);
-        if(ret == null) {
+        if (ret == null) {
             return XMLUtils.get(XMLUtils.last(XMLUtils.getElements(root, "parent")), name);
         }
         return ret;
@@ -105,11 +103,11 @@ public class Package {
 
     private String expand(Package context, String string) {
         Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(string);
-        while(matcher.find()) {
+        while (matcher.find()) {
             String property = matcher.group(1);
             List<Node> properties = XMLUtils.getElements(context.pom, "properties");
             Node propertyNodes = properties.get(0);
-            for(Node n : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
+            for (Node n : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
                 String value = n.getFirstChild().getNodeValue();
                 string = string.replace("${" + property + "}", value);
             }
@@ -119,7 +117,7 @@ public class Package {
 
     @Override
     public int hashCode() {
-        if(baseURL != null) {
+        if (baseURL != null) {
             return baseURL.hashCode();
         }
         LOG.log(Level.SEVERE, "baseURL not set: {0}", this);
@@ -128,9 +126,9 @@ public class Package {
 
     @Override
     public boolean equals(final Object o) {
-        if(this == o) return true;
-        if(o == null || getClass() != o.getClass()) return false;
-        return baseURL.equals(( (Package) o ).baseURL);
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        return baseURL.equals(((Package) o).baseURL);
     }
 
     @Override
@@ -149,19 +147,19 @@ public class Package {
             File existing = getFile();
             LOG.log(Level.INFO, "Version file: {0}", existing);
             LOG.log(Level.INFO, "Version url: {0}", getChecksumURL());
-            if(!existing.exists()) {
+            if (!existing.exists()) {
                 LOG.log(Level.INFO, "Don''t have {0}, not latest", existing);
                 return false;
             }
             String expected = getChecksum(new URL(getChecksumURL()));
             String actual = Utils.checksum(existing, "SHA1");
-            if(!actual.equals(expected)) {
+            if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, not latest. {1} vs {2}",
-                        new Object[] { existing, expected, actual });
+                        new Object[]{existing, expected, actual});
                 return false;
             }
-        } catch(IOException | NoSuchAlgorithmException ex) {
+        } catch (IOException | NoSuchAlgorithmException ex) {
             LOG.log(Level.SEVERE, null, ex);
             return false;
         }
@@ -171,12 +169,12 @@ public class Package {
 
     private String getChecksum(URL url) {
         String line = Utils.loadPage(url);
-        if(line == null) return null;
+        if (line == null) return null;
         return line;
     }
 
     public File getFile() {
-        if(this.isSelf()) return Utils.CURRENT_FILE;
+        if (this.isSelf()) return Utils.CURRENT_FILE;
         return new File(getProgramDirectory(), getFileName());
     }
 
@@ -198,7 +196,7 @@ public class Package {
     }
 
     public boolean isSelf() {
-        return self || ( "launcher".equals(aid) && "com.timepath".equals(gid) );
+        return self || ("launcher".equals(aid) && "com.timepath".equals(gid));
     }
 
     public void setSelf(final boolean self) {
@@ -224,19 +222,19 @@ public class Package {
         try {
             File existing = getFile();
             File checksum = new File(existing.getParent(), existing.getName() + ".sha1");
-            if(!checksum.exists() || !existing.exists()) {
+            if (!checksum.exists() || !existing.exists()) {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
             String expected = getChecksum(checksum.toURI().toURL());
             String actual = Utils.checksum(existing, "SHA1");
-            if(!actual.equals(expected)) {
+            if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, reacquire. {1} vs {2}",
-                        new Object[] { existing, expected, actual });
+                        new Object[]{existing, expected, actual});
                 return false;
             }
-        } catch(IOException | NoSuchAlgorithmException ex) {
+        } catch (IOException | NoSuchAlgorithmException ex) {
             LOG.log(Level.SEVERE, null, ex);
             return false;
         }
@@ -251,8 +249,8 @@ public class Package {
         Set<Package> downloads = getDownloads();
         Set<Package> outdated = new HashSet<>();
         LOG.log(Level.INFO, "Download list: {0}", downloads.toString());
-        for(Package p : downloads) {
-            if(!p.verify()) {
+        for (Package p : downloads) {
+            if (!p.verify()) {
                 LOG.log(Level.INFO, "{0} is outdated", p);
                 outdated.add(p);
             }
@@ -279,12 +277,12 @@ public class Package {
             pom = XMLUtils.rootNode(MavenResolver.resolvePomStream(Coordinate.from(gid, aid, ver, null)), "project");
             ExecutorService pool = Executors.newCachedThreadPool(new DaemonThreadFactory());
             Map<Node, Future<Set<Package>>> futures = new HashMap<>();
-            for(final Node d : XMLUtils.getElements(pom, "dependencies/dependency")) {
+            for (final Node d : XMLUtils.getElements(pom, "dependencies/dependency")) {
                 // Check scope
                 String type = XMLUtils.get(d, "scope");
-                if(type == null) type = "compile";
+                if (type == null) type = "compile";
                 // TODO: 'import' scope
-                switch(type.toLowerCase()) {
+                switch (type.toLowerCase()) {
                     case "provided":
                     case "test":
                     case "system":
@@ -296,26 +294,26 @@ public class Package {
                         try {
                             Package pkg = Package.parse(d, Package.this);
                             return pkg.getDownloads();
-                        } catch(IllegalArgumentException e) {
+                        } catch (IllegalArgumentException e) {
                             LOG.log(Level.SEVERE, null, e);
                         }
                         return null;
                     }
                 }));
             }
-            for(Entry<Node, Future<Set<Package>>> e : futures.entrySet()) {
+            for (Entry<Node, Future<Set<Package>>> e : futures.entrySet()) {
                 try {
                     Set<Package> result = e.getValue().get();
-                    if(result != null) {
+                    if (result != null) {
                         downloads.addAll(result);
                     } else {
                         LOG.log(Level.SEVERE, "Download enumeration failed: {0}", e.getKey());
                     }
-                } catch(InterruptedException | ExecutionException ex) {
+                } catch (InterruptedException | ExecutionException ex) {
                     LOG.log(Level.SEVERE, null, ex);
                 }
             }
-        } catch(IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
+        } catch (IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
             LOG.log(Level.SEVERE, "initDownloads", e);
         }
         return downloads;
@@ -330,7 +328,11 @@ public class Package {
     }
 
     public void setLocked(final boolean locked) {
-        if(locked) { LOG.log(Level.INFO, "Locking {0}", this); } else { LOG.log(Level.INFO, "unlocking {0}", this); }
+        if (locked) {
+            LOG.log(Level.INFO, "Locking {0}", this);
+        } else {
+            LOG.log(Level.INFO, "unlocking {0}", this);
+        }
         this.locked = locked;
     }
 
