@@ -59,12 +59,32 @@ public class Utils {
         return sb.toString();
     }
 
+    private static final ConnectionSettings CONNECTION_SETTINGS_IDENTITY = new ConnectionSettings() {
+        @Override
+        public void apply(URLConnection u) {
+
+        }
+    };
+
+    public static interface ConnectionSettings {
+        void apply(URLConnection u);
+    }
+
+    /**
+     * @param s the URL
+     * @return a URLConnection for s
+     * @throws java.io.IOException
+     */
+    public static URLConnection requestConnection(String s) throws IOException {
+        return requestConnection(s, CONNECTION_SETTINGS_IDENTITY);
+    }
+
     /**
      * @param s the URL
      * @return a URLConnection for s
      * @throws IOException
      */
-    public static URLConnection requestConnection(String s) throws IOException {
+    public static URLConnection requestConnection(String s, ConnectionSettings settings) throws IOException {
         LOG.log(Level.INFO, "Requesting: {0}", s);
         URL url;
         try {
@@ -86,6 +106,7 @@ public class Utils {
                         HttpURLConnection conn = ((HttpURLConnection) connection);
                         conn.setRequestProperty("Accept-Encoding", "gzip,deflate");
                         conn.setInstanceFollowRedirects(true);
+                        settings.apply(conn);
                         int status = conn.getResponseCode();
                         int range = status / 100;
                         if (status == HttpURLConnection.HTTP_MOVED_TEMP
@@ -100,6 +121,8 @@ public class Utils {
                         } else if (range != 2 && range != 5) {
                             LOG.log(Level.WARNING, "Unexpected response from {0}: {1}", new Object[]{s, status});
                         }
+                    } else {
+                        settings.apply(connection);
                     }
                     return connection;
                 } catch (IOException e) {

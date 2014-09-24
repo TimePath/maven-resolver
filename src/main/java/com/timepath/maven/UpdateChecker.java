@@ -20,12 +20,6 @@ public class UpdateChecker {
     public static final String ALGORITHM = "sha1";
 
     private static final Logger LOG = Logger.getLogger(UpdateChecker.class.getName());
-    private static Map<Package, Boolean> locked = new Cache<Package, Boolean>() {
-        @Override
-        protected Boolean fill(Package key) {
-            return false;
-        }
-    };
 
     /**
      * Check the integrity of a single package
@@ -60,17 +54,16 @@ public class UpdateChecker {
 
     /**
      * @param aPackage
-     * @return all updates, flattened
+     * @return all transitive updates, flattened. Includes self.
      */
     public static Set<Package> getUpdates(Package aPackage) {
         Set<Package> downloads = aPackage.getDownloads();
+        LOG.log(Level.INFO, "Depends: {0} on {1}", new Object[]{aPackage, downloads.toString()});
         Set<Package> outdated = new HashSet<>();
-        LOG.log(Level.INFO, "Download list: {0}", downloads.toString());
         for (Package p : downloads) {
-            if (!verify(p)) {
-                LOG.log(Level.INFO, "{0} is outdated", p);
-                outdated.add(p);
-            }
+            if (verify(p)) continue;
+            LOG.log(Level.INFO, "{0} is outdated", p);
+            outdated.add(p);
         }
         return outdated;
     }
@@ -138,7 +131,6 @@ public class UpdateChecker {
     }
 
     public static File getFile(Package aPackage) {
-        if (Package.isSelf(aPackage)) return Utils.CURRENT_FILE;
         return new File(getProgramDirectory(aPackage), getFileName(aPackage));
     }
 
@@ -146,12 +138,4 @@ public class UpdateChecker {
         return new File(getProgramDirectory(aPackage), Utils.name(getChecksumURL(aPackage, algorithm)));
     }
 
-    public static boolean isLocked(Package aPackage) {
-        return locked.get(aPackage);
-    }
-
-    public static void setLocked(Package aPackage, boolean lock) {
-        LOG.log(Level.INFO, (lock ? "L" : "Unl") + "ocking {0}", aPackage);
-        locked.put(aPackage, lock);
-    }
 }

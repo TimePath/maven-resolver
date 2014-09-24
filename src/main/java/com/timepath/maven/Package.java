@@ -10,7 +10,6 @@ import javax.xml.transform.dom.DOMSource;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URLConnection;
-import java.text.MessageFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
@@ -77,7 +76,7 @@ public class Package {
         p.aid = XMLUtils.get(root, "artifactId");
         p.ver = inherit(root, "version"); // TODO: dependencyManagement/dependencies/dependency/version
         if (p.ver == null) {
-            throw new UnsupportedOperationException("Null version: " + MessageFormat.format("{0}:{1}", p.gid, p.aid));
+            throw new UnsupportedOperationException("Null version: " + p);
         }
         if (context != null) {
             p.expand(context);
@@ -142,7 +141,7 @@ public class Package {
     /**
      * TODO: eager loading
      *
-     * @return all package files, flattened
+     * @return all transitive packages, flattened. Includes self.
      */
     public Set<Package> getDownloads() {
         return downloads == null ? downloads = Collections.unmodifiableSet(initDownloads()) : downloads;
@@ -166,7 +165,7 @@ public class Package {
 
     @Override
     public String toString() {
-        return name == null ? Utils.name(baseURL) : name;
+        return name != null ? name : baseURL != null ? Utils.name(baseURL) : String.format("%s:%s", gid, aid);
     }
 
     /**
@@ -193,7 +192,7 @@ public class Package {
     }
 
     /**
-     * Fetches all dependency information recursively
+     * Fetches all transitive packages. Includes self.
      */
     private Set<Package> initDownloads() {
         LOG.log(Level.INFO, "initDownloads: {0}", this);
