@@ -1,5 +1,7 @@
 package com.timepath.maven;
 
+import com.timepath.FileUtils;
+import com.timepath.IOUtils;
 import com.timepath.XMLUtils;
 import com.timepath.util.Cache;
 import org.w3c.dom.Node;
@@ -47,7 +49,7 @@ public class Package {
     private Cache<String, String> checksums = new Cache<String, String>() {
         @Override
         protected String fill(String algorithm) {
-            return Utils.requestPage(UpdateChecker.getChecksumURL(Package.this, algorithm));
+            return IOUtils.requestPage(UpdateChecker.getChecksumURL(Package.this, algorithm));
         }
     };
     private Set<Package> downloads;
@@ -65,7 +67,7 @@ public class Package {
         if (root == null) throw new IllegalArgumentException("The root node cannot be null");
         Package p = new Package();
         LOG.log(Level.FINE, "Constructing Package from node");
-        String pprint = Utils.pprint(new DOMSource(root), 2);
+        String pprint = XMLUtils.pprint(new DOMSource(root), 2);
         LOG.log(Level.FINER, "{0}", pprint);
         p.name = XMLUtils.get(root, "name");
         p.gid = inherit(root, "groupId");
@@ -165,7 +167,7 @@ public class Package {
 
     @Override
     public String toString() {
-        return name != null ? name : baseURL != null ? Utils.name(baseURL) : String.format("%s:%s", gid, aid);
+        return name != null ? name : baseURL != null ? FileUtils.name(baseURL) : String.format("%s:%s", gid, aid);
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.timepath.maven;
 
+import com.timepath.IOUtils;
 import com.timepath.XMLUtils;
 import com.timepath.util.Cache;
 import com.timepath.util.concurrent.DaemonThreadFactory;
@@ -27,6 +28,8 @@ import java.util.regex.Pattern;
  */
 public class MavenResolver {
 
+    public static final Preferences SETTINGS = Preferences.userRoot().node("timepath");
+    public static final File CURRENT_FILE = com.timepath.Utils.currentFile(MavenResolver.class);
     private static final Collection<String> REPOSITORIES;
     private static final String REPO_CENTRAL = "http://repo.maven.apache.org/maven2";
     private static final String REPO_JFROG_SNAPSHOTS = "http://oss.jfrog.org/oss-snapshot-local";
@@ -65,7 +68,7 @@ public class MavenResolver {
                             try {
                                 if (repository.startsWith("file:"))
                                     continue; // TODO: Handle metadata when using REPO_LOCAL
-                                Node metadata = XMLUtils.rootNode(Utils.openStream(base + "maven-metadata.xml"), "metadata");
+                                Node metadata = XMLUtils.rootNode(IOUtils.openStream(base + "maven-metadata.xml"), "metadata");
                                 Node snapshot = XMLUtils.last(XMLUtils.getElements(metadata, "versioning/snapshot"));
                                 String timestamp = XMLUtils.get(snapshot, "timestamp");
                                 String buildNumber = XMLUtils.get(snapshot, "buildNumber");
@@ -95,7 +98,7 @@ public class MavenResolver {
                                     key.version,
                                     classifier);
                             if (!POM_CACHE.containsKey(key)) { // Test it with the pom
-                                String pom = Utils.requestPage(test + ".pom");
+                                String pom = IOUtils.requestPage(test + ".pom");
                                 if (pom == null) continue;
                                 // May as well cache the pom while we have it
                                 FutureTask<String> ft = new FutureTask<>(new Runnable() {
@@ -154,7 +157,7 @@ public class MavenResolver {
             return THREAD_POOL.submit(new Callable<String>() {
                 @Override
                 public String call() throws Exception {
-                    String pom = Utils.requestPage(resolve(key, "pom"));
+                    String pom = IOUtils.requestPage(resolve(key, "pom"));
                     if (pom == null) LOG.log(Level.WARNING, "Resolving POM (failed): {0}", key);
                     return pom;
                 }
@@ -262,7 +265,7 @@ public class MavenResolver {
      */
     public static String getLocal() {
         String local;
-        local = Utils.SETTINGS.get("progStoreDir", new File(Utils.CURRENT_FILE.getParentFile(), "bin").getPath());
+        local = SETTINGS.get("progStoreDir", new File(CURRENT_FILE.getParentFile(), "bin").getPath());
         // local = System.getProperty("maven.repo.local", System.getProperty("user.home") + "/.m2/repository");
         return sanitize(local);
     }

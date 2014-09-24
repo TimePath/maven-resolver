@@ -1,13 +1,13 @@
 package com.timepath.maven;
 
-import com.timepath.util.Cache;
+import com.timepath.FileUtils;
+import com.timepath.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,8 +36,8 @@ public class UpdateChecker {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
-            String expected = Utils.requestPage(checksum.toURI().toString());
-            String actual = Utils.checksum(existing, ALGORITHM);
+            String expected = IOUtils.requestPage(checksum.toURI().toString());
+            String actual = FileUtils.checksum(existing, ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, reacquire. {1} vs {2}",
@@ -83,7 +83,7 @@ public class UpdateChecker {
                 return false;
             }
             String expected = getChecksum(aPackage, ALGORITHM);
-            String actual = Utils.checksum(existing, ALGORITHM);
+            String actual = FileUtils.checksum(existing, ALGORITHM);
             LOG.log(Level.INFO, "Checksum: {0} {1}", new Object[]{expected, existing});
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
@@ -123,7 +123,7 @@ public class UpdateChecker {
     }
 
     public static String getFileName(Package aPackage) {
-        return Utils.name(getDownloadURL(aPackage));
+        return FileUtils.name(getDownloadURL(aPackage));
     }
 
     public static String getChecksum(Package aPackage, String algorithm) {
@@ -135,7 +135,7 @@ public class UpdateChecker {
     }
 
     public static File getChecksumFile(Package aPackage, String algorithm) {
-        return new File(getProgramDirectory(aPackage), Utils.name(getChecksumURL(aPackage, algorithm)));
+        return new File(getProgramDirectory(aPackage), FileUtils.name(getChecksumURL(aPackage, algorithm)));
     }
 
 }
