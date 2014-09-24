@@ -3,10 +3,7 @@ package com.timepath.maven;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLDecoder;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -16,6 +13,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 public class Utils {
 
@@ -59,30 +59,95 @@ public class Utils {
         return sb.toString();
     }
 
-    public static String loadPage(URL u) {
-        LOG.log(Level.INFO, "loadPage: {0}", u);
-        if (u == null) return null;
+    /**
+     * @param s the URL
+     * @return a URLConnection for s
+     * @throws IOException
+     */
+    private static URLConnection requestConnection(String s) throws IOException {
+        LOG.log(Level.INFO, "Requesting: {0}", s);
+        URL url;
         try {
-            URLConnection connection = u.openConnection();
-            if (connection instanceof HttpURLConnection) {
-                HttpURLConnection http = ((HttpURLConnection) connection);
-                if (http.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP) {
-                    connection = new URL(http.getHeaderField("Location")).openConnection();
+            url = new URI(s).toURL();
+        } catch (URISyntaxException | MalformedURLException e) {
+            throw new IOException("Malformed URI: " + s);
+        }
+        int redirectLimit = 5;
+        int retryLimit = 2;
+        redirect:
+        for (int i = 0; i < redirectLimit + 1; i++) {
+            for (int j = 0; j < retryLimit + 1; j++) {
+                try {
+                    URLConnection connection = url.openConnection();
+                    connection.setUseCaches(true);
+                    connection.setConnectTimeout(10 * 1000); // Initial
+                    connection.setReadTimeout(10 * 1000); // During transfer
+                    if (connection instanceof HttpURLConnection) { // Includes HttpsURLConnection
+                        HttpURLConnection conn = ((HttpURLConnection) connection);
+                        conn.setRequestProperty("Accept-Encoding", "gzip,deflate");
+                        conn.setInstanceFollowRedirects(true);
+                        int status = conn.getResponseCode();
+                        int range = status / 100;
+                        if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                                || status == HttpURLConnection.HTTP_MOVED_PERM
+                                || status == HttpURLConnection.HTTP_SEE_OTHER) {
+                            s = conn.getHeaderField("Location");
+                            conn.disconnect();
+                            continue redirect;
+                        } else if (range == 4) { // TODO: 409 artifactory messages: snapshot/release handling policy
+                            j = retryLimit; // Stop
+                            throw new FileNotFoundException("HTTP 4xx: " + s);
+                        } else if (range != 2 && range != 5) {
+                            LOG.log(Level.WARNING, "Unexpected response from {0}: {1}", new Object[]{s, status});
+                        }
+                    }
+                    return connection;
+                } catch (IOException e) {
+                    if (j == retryLimit) throw e;
                 }
             }
-            try (InputStreamReader isr = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
-                BufferedReader br = new BufferedReader(isr);
-                StringBuilder sb = new StringBuilder(Math.max(connection.getContentLength(), 0));
-                for (String line; (line = br.readLine()) != null; ) sb.append('\n').append(line);
-                if (sb.length() < 1) return null;
-                return sb.substring(1);
-            }
-        } catch (FileNotFoundException e) {
-            LOG.log(Level.FINE, "Exception in loadPage", e);
-        } catch (IOException e) {
-            LOG.log(Level.SEVERE, "Exception in loadPage", e);
         }
-        return null;
+        throw new IOException("Too many redirects");
+    }
+
+    public static InputStream openStream(URLConnection conn) throws IOException {
+        String encoding = conn.getHeaderField("Content-Encoding");
+        InputStream stream = conn.getInputStream();
+        if (encoding != null) {
+            LOG.log(Level.FINE, "Decompressing: {0} ({1})", new Object[]{conn.getURL(), encoding});
+            switch (encoding.toLowerCase()) {
+                case "gzip":
+                    return new GZIPInputStream(stream);
+                case "deflate":
+                    return new InflaterInputStream(stream, new Inflater(true));
+            }
+        }
+        return stream;
+    }
+
+    public static InputStream openStream(String s) throws IOException {
+        return openStream(requestConnection(s));
+    }
+
+    /**
+     * @param s the URL
+     * @return the page text, or null
+     */
+    public static String requestPage(String s) {
+        URLConnection connection;
+        try {
+            connection = requestConnection(s);
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "Unable to resolve: {0}", s);
+            return null;
+        }
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(openStream(connection), StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder(Math.max(connection.getContentLength(), 0));
+            for (String line; (line = br.readLine()) != null; ) sb.append('\n').append(line);
+            return sb.substring(Math.min(1, sb.length()));
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     public static String name(String s) {

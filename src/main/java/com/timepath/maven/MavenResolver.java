@@ -9,7 +9,6 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.Collection;
@@ -28,9 +27,9 @@ import java.util.regex.Pattern;
  */
 public class MavenResolver {
 
-    private static final Collection<String> repositories;
+    private static final Collection<String> REPOSITORIES;
     private static final String REPO_CENTRAL = "http://repo.maven.apache.org/maven2";
-    private static final String REPO_JFROG = "http://oss.jfrog.org/oss-snapshot-local";
+    private static final String REPO_JFROG_SNAPSHOTS = "http://oss.jfrog.org/oss-snapshot-local";
     private static final String REPO_CUSTOM = "https://dl.dropboxusercontent.com/u/42745598/maven2";
     private static final String REPO_JETBRAINS = "http://repository.jetbrains.com/all";
     private static final Pattern RE_VERSION = Pattern.compile("(\\d*)\\.(\\d*)\\.(\\d*)");
@@ -38,10 +37,10 @@ public class MavenResolver {
     private static final long META_LIFETIME = 10 * 60 * 1000; // 10 minutes
 
     static {
-        repositories = new LinkedHashSet<>();
-        addRepository(REPO_JFROG);
-        addRepository(REPO_CUSTOM);
+        REPOSITORIES = new LinkedHashSet<>();
+        addRepository(REPO_JFROG_SNAPSHOTS);
         addRepository(REPO_JETBRAINS);
+        addRepository(REPO_CUSTOM);
         addRepository(REPO_CENTRAL);
     }
 
@@ -49,15 +48,13 @@ public class MavenResolver {
      * Cache of coordinates to base urls
      */
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Happens behind the scenes
-    private static final Map<Coordinate, Future<String>> urlCache = new Cache<Coordinate, Future<String>>() {
+    private static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
         @Override
         protected Future<String> fill(final Coordinate key) {
             LOG.log(Level.INFO, "Resolving baseURL (missed): {0}", key);
             final String s = '/' + key.groupId.replace('.', '/') + '/' + key.artifactId + '/' + key.version + '/';
-            final String classifier = (key.classifier == null || key.classifier.isEmpty())
-                    ? ""
-                    : '-' + key.classifier;
-            return pool.submit(new Callable<String>() {
+            final String classifier = (key.classifier == null || key.classifier.isEmpty()) ? "" : '-' + key.classifier;
+            return THREAD_POOL.submit(new Callable<String>() {
                 @Override
                 public String call() throws Exception {
                     String url = null;
@@ -66,9 +63,9 @@ public class MavenResolver {
                         // TODO: Check version ranges at `new URL(baseArtifact + "maven-metadata.xml")`
                         if (key.version.endsWith("-SNAPSHOT")) {
                             try {
-                                // TODO: Handle metadata when using REPO_LOCAL
-                                Node metadata = XMLUtils.rootNode(new URL(base + "maven-metadata.xml").openStream(),
-                                        "metadata");
+                                if (repository.startsWith("file:"))
+                                    continue; // TODO: Handle metadata when using REPO_LOCAL
+                                Node metadata = XMLUtils.rootNode(Utils.openStream(base + "maven-metadata.xml"), "metadata");
                                 Node snapshot = XMLUtils.last(XMLUtils.getElements(metadata, "versioning/snapshot"));
                                 String timestamp = XMLUtils.get(snapshot, "timestamp");
                                 String buildNumber = XMLUtils.get(snapshot, "buildNumber");
@@ -97,22 +94,19 @@ public class MavenResolver {
                                     key.artifactId,
                                     key.version,
                                     classifier);
-                            try {
-                                if (!pomCache.containsKey(key)) { // Test it with the pom
-                                    String pom = Utils.loadPage(new URL(test + ".pom"));
-                                    if (pom == null) continue;
-                                    // May as well cache the pom while we have it
-                                    FutureTask<String> ft = new FutureTask<>(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                        }
-                                    }, pom);
-                                    ft.run();
-                                    pomCache.put(key, ft);
-                                }
-                                url = test;
-                            } catch (MalformedURLException ignored) {
+                            if (!POM_CACHE.containsKey(key)) { // Test it with the pom
+                                String pom = Utils.requestPage(test + ".pom");
+                                if (pom == null) continue;
+                                // May as well cache the pom while we have it
+                                FutureTask<String> ft = new FutureTask<>(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                    }
+                                }, pom);
+                                ft.run();
+                                POM_CACHE.put(key, ft);
                             }
+                            url = test;
                         }
                         if (url != null) break;
                     }
@@ -149,24 +143,20 @@ public class MavenResolver {
             return System.currentTimeMillis() >= getCached(key).getLong("expires", 0);
         }
     };
-    private static final ExecutorService pool
-            = Executors.newCachedThreadPool(new DaemonThreadFactory());
+    public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
     /**
      * Cache of coordinates to pom documents
      */
-    private static final Map<Coordinate, Future<String>> pomCache = new Cache<Coordinate, Future<String>>() {
+    private static final Map<Coordinate, Future<String>> POM_CACHE = new Cache<Coordinate, Future<String>>() {
         @Override
         protected Future<String> fill(final Coordinate key) {
             LOG.log(Level.INFO, "Resolving POM (missed): {0}", key);
-            return pool.submit(new Callable<String>() {
+            return THREAD_POOL.submit(new Callable<String>() {
                 @Override
                 public String call() throws Exception {
-                    try {
-                        return Utils.loadPage(new URL(resolve(key, "pom")));
-                    } catch (FileNotFoundException | MalformedURLException e) {
-                        LOG.log(Level.WARNING, "Resolving POM (failed): " + key, e);
-                        return null;
-                    }
+                    String pom = Utils.requestPage(resolve(key, "pom"));
+                    if (pom == null) LOG.log(Level.WARNING, "Resolving POM (failed): {0}", key);
+                    return pom;
                 }
             });
         }
@@ -181,7 +171,7 @@ public class MavenResolver {
      * @param url the URL
      */
     public static void addRepository(String url) {
-        repositories.add(sanitize(url));
+        REPOSITORIES.add(sanitize(url));
     }
 
     /**
@@ -214,10 +204,9 @@ public class MavenResolver {
         return null;
     }
 
-    private static byte[] resolvePom(Coordinate c)
-            throws MalformedURLException, ExecutionException, InterruptedException {
-        LOG.log(Level.INFO, "Resolving pom: {0}", c);
-        String pom = pomCache.get(c).get();
+    private static byte[] resolvePom(Coordinate c) throws MalformedURLException, ExecutionException, InterruptedException {
+        LOG.log(Level.INFO, "Resolving POM: {0}", c);
+        String pom = POM_CACHE.get(c).get();
         if (pom != null) return pom.getBytes(StandardCharsets.UTF_8);
         return null;
     }
@@ -244,7 +233,8 @@ public class MavenResolver {
     public static String resolve(Coordinate c) throws FileNotFoundException {
         LOG.log(Level.INFO, "Resolving baseURL: {0}", c);
         try {
-            String base = urlCache.get(c).get();
+            Future<String> future = URL_CACHE.get(c);
+            String base = future.get();
             if (base != null) return base;
         } catch (InterruptedException | ExecutionException e) {
             LOG.log(Level.SEVERE, null, e);
@@ -263,7 +253,7 @@ public class MavenResolver {
         } catch (MalformedURLException e) {
             LOG.log(Level.SEVERE, null, e);
         }
-        repositories.addAll(MavenResolver.repositories);
+        repositories.addAll(MavenResolver.REPOSITORIES);
         return Collections.unmodifiableCollection(repositories);
     }
 

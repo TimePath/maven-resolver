@@ -1,8 +1,11 @@
 package com.timepath.maven;
 
 import com.timepath.XMLUtils;
-import com.timepath.util.concurrent.DaemonThreadFactory;
+import com.timepath.util.Cache;
 import org.w3c.dom.Node;
+import org.w3c.dom.bootstrap.DOMImplementationRegistry;
+import org.w3c.dom.ls.DOMImplementationLS;
+import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -10,12 +13,14 @@ import javax.xml.transform.dom.DOMSource;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URLConnection;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -58,9 +63,9 @@ public class Package {
             throw new IllegalArgumentException("The root node cannot be null");
         }
         Package p = new Package();
-        LOG.log(Level.INFO, "Constructing Package from node");
+        LOG.log(Level.FINE, "Constructing Package from node");
         String pprint = Utils.pprint(new DOMSource(root), 2);
-        LOG.log(Level.FINE, "{0}", pprint);
+        LOG.log(Level.FINER, "{0}", pprint);
         p.name = XMLUtils.get(root, "name");
         p.gid = inherit(root, "groupId");
         if (p.gid == null) { // invalid pom
@@ -68,9 +73,9 @@ public class Package {
             return null;
         }
         p.aid = XMLUtils.get(root, "artifactId");
-        p.ver = inherit(root, "version");
+        p.ver = inherit(root, "version"); // TODO: dependencyManagement/dependencies/dependency/version
         if (p.ver == null) {
-            throw new UnsupportedOperationException("TODO: dependencyManagement/dependencies/dependency/version");
+            throw new UnsupportedOperationException("Null version: " + MessageFormat.format("{0}:{1}", p.gid, p.aid));
         }
         if (context != null) {
             p.expand(context);
@@ -86,8 +91,14 @@ public class Package {
 
     private static String inherit(Node root, String name) {
         String ret = XMLUtils.get(root, name);
-        if (ret == null) {
-            return XMLUtils.get(XMLUtils.last(XMLUtils.getElements(root, "parent")), name);
+        if (ret == null) { // Must be defined by a parent pom
+            Node parent = null;
+            try {
+                parent = XMLUtils.last(XMLUtils.getElements(root, "parent"));
+            } catch (NullPointerException ignored) {
+            }
+            if (parent == null) return null; // TODO: transitive parent poms
+            return XMLUtils.get(parent, name);
         }
         return ret;
     }
@@ -145,14 +156,13 @@ public class Package {
         LOG.log(Level.INFO, "Checking {0} for updates...", this);
         try {
             File existing = getFile();
-            LOG.log(Level.INFO, "Version file: {0}", existing);
-            LOG.log(Level.INFO, "Version url: {0}", getChecksumURL());
             if (!existing.exists()) {
                 LOG.log(Level.INFO, "Don''t have {0}, not latest", existing);
                 return false;
             }
-            String expected = getChecksum(new URL(getChecksumURL()));
+            String expected = getChecksum("SHA1");
             String actual = Utils.checksum(existing, "SHA1");
+            LOG.log(Level.INFO, "Checksum: {0} {1}", new Object[]{expected, existing});
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, not latest. {1} vs {2}",
@@ -167,10 +177,15 @@ public class Package {
         return true;
     }
 
-    private String getChecksum(URL url) {
-        String line = Utils.loadPage(url);
-        if (line == null) return null;
-        return line;
+    private Cache<String, String> checksums = new Cache<String, String>() {
+        @Override
+        protected String fill(String algorithm) {
+            return Utils.requestPage(getChecksumURL(algorithm));
+        }
+    };
+
+    public synchronized String getChecksum(String algorithm) {
+        return checksums.get(algorithm.toLowerCase());
     }
 
     public File getFile() {
@@ -204,12 +219,12 @@ public class Package {
     }
 
     /**
-     * TODO: other checksum types
+     * TODO: other package types
      *
      * @return
      */
-    public String getChecksumURL() {
-        return baseURL + ".jar.sha1";
+    public String getChecksumURL(String algorithm) {
+        return baseURL + ".jar." + algorithm.toLowerCase();
     }
 
     /**
@@ -226,7 +241,7 @@ public class Package {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
-            String expected = getChecksum(checksum.toURI().toURL());
+            String expected = Utils.requestPage(checksum.toURI().toString());
             String actual = Utils.checksum(existing, "SHA1");
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
@@ -265,6 +280,8 @@ public class Package {
         return downloads.isEmpty() ? initDownloads() : Collections.unmodifiableSet(downloads);
     }
 
+    private static final Map<Node, Future<Set<Package>>> FUTURES = new HashMap<>();
+
     /**
      * Fetches all dependency information recursively
      * TODO: eager loading
@@ -275,8 +292,7 @@ public class Package {
         try {
             // pull the pom
             pom = XMLUtils.rootNode(MavenResolver.resolvePomStream(Coordinate.from(gid, aid, ver, null)), "project");
-            ExecutorService pool = Executors.newCachedThreadPool(new DaemonThreadFactory());
-            Map<Node, Future<Set<Package>>> futures = new HashMap<>();
+            Map<Node, Future<Set<Package>>> locals = new HashMap<>();
             for (final Node d : XMLUtils.getElements(pom, "dependencies/dependency")) {
                 // Check scope
                 String type = XMLUtils.get(d, "scope");
@@ -288,29 +304,37 @@ public class Package {
                     case "system":
                         continue;
                 }
-                futures.put(d, pool.submit(new Callable<Set<Package>>() {
-                    @Override
-                    public Set<Package> call() throws Exception {
-                        try {
-                            Package pkg = Package.parse(d, Package.this);
-                            return pkg.getDownloads();
-                        } catch (IllegalArgumentException e) {
-                            LOG.log(Level.SEVERE, null, e);
-                        }
-                        return null;
+                synchronized (FUTURES) {
+                    Future<Set<Package>> future = FUTURES.get(d);
+                    if (future == null) {
+                        future = MavenResolver.THREAD_POOL.submit(new Callable<Set<Package>>() {
+                            @Override
+                            public Set<Package> call() throws Exception {
+                                try {
+                                    Package pkg = Package.parse(d, Package.this);
+                                    // FIXME: pkg should not be null
+                                    if (pkg != null) return pkg.getDownloads();
+                                } catch (IllegalArgumentException e) {
+                                    LOG.log(Level.SEVERE, null, e);
+                                }
+                                return null;
+                            }
+                        });
+                        FUTURES.put(d, future);
                     }
-                }));
+                    locals.put(d, future);
+                }
             }
-            for (Entry<Node, Future<Set<Package>>> e : futures.entrySet()) {
+            for (Entry<Node, Future<Set<Package>>> entry : locals.entrySet()) {
                 try {
-                    Set<Package> result = e.getValue().get();
+                    Set<Package> result = entry.getValue().get();
                     if (result != null) {
                         downloads.addAll(result);
                     } else {
-                        LOG.log(Level.SEVERE, "Download enumeration failed: {0}", e.getKey());
+                        LOG.log(Level.SEVERE, "Download enumeration failed:\n{0}", pprint(entry.getKey()));
                     }
-                } catch (InterruptedException | ExecutionException ex) {
-                    LOG.log(Level.SEVERE, null, ex);
+                } catch (InterruptedException | ExecutionException e) {
+                    LOG.log(Level.SEVERE, null, e);
                 }
             }
         } catch (IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
@@ -319,8 +343,21 @@ public class Package {
         return downloads;
     }
 
-    public File getChecksumFile() {
-        return new File(getProgramDirectory(), Utils.name(getChecksumURL()));
+    private String pprint(Node n) {
+        try {
+            DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
+            DOMImplementationLS impl = (DOMImplementationLS) registry.getDOMImplementation("LS");
+            LSSerializer writer = impl.createLSSerializer();
+            writer.getDomConfig().setParameter("format-pretty-print", true);
+            writer.getDomConfig().setParameter("xml-declaration", false);
+            return writer.writeToString(n);
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+            return String.valueOf(n);
+        }
+    }
+
+    public File getChecksumFile(String algorithm) {
+        return new File(getProgramDirectory(), Utils.name(getChecksumURL(algorithm)));
     }
 
     public boolean isLocked() {
@@ -338,5 +375,22 @@ public class Package {
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Associate a package with a connection to its jar. Might be able to store extra checksum data if present.
+     *
+     * @param connection
+     */
+    public void associate(URLConnection connection) {
+        String prefix = "x-checksum-";
+        for (Map.Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
+            String key = String.valueOf(field.getKey()).toLowerCase(); // Null keys!
+            if (key.startsWith(prefix)) {
+                String algorithm = key.substring(prefix.length());
+                LOG.log(Level.FINE, "Associating checksum: {0} {1}", new Object[]{algorithm, this});
+                checksums.put(algorithm, field.getValue().get(0));
+            }
+        }
     }
 }
