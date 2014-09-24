@@ -30,7 +30,7 @@ public class Coordinate {
         String s = format(groupId, artifactId, version, classifier);
         Coordinate c = cache.get(s);
         if (c == null) {
-            LOG.log(Level.INFO, "Creating {0}", s);
+            LOG.log(Level.FINE, "Creating {0}", s);
             c = new Coordinate(groupId, artifactId, version, classifier);
             cache.put(s, c);
         }

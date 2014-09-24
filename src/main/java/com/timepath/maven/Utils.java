@@ -64,7 +64,7 @@ public class Utils {
      * @return a URLConnection for s
      * @throws IOException
      */
-    private static URLConnection requestConnection(String s) throws IOException {
+    public static URLConnection requestConnection(String s) throws IOException {
         LOG.log(Level.INFO, "Requesting: {0}", s);
         URL url;
         try {
