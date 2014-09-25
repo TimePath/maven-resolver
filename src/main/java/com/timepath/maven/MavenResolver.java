@@ -1,6 +1,7 @@
 package com.timepath.maven;
 
 import com.timepath.IOUtils;
+import com.timepath.Utils;
 import com.timepath.XMLUtils;
 import com.timepath.util.Cache;
 import com.timepath.util.concurrent.DaemonThreadFactory;
@@ -29,7 +30,7 @@ import java.util.regex.Pattern;
 public class MavenResolver {
 
     public static final Preferences SETTINGS = Preferences.userRoot().node("timepath");
-    public static final File CURRENT_FILE = com.timepath.Utils.currentFile(MavenResolver.class);
+    public static final File CURRENT_FILE = Utils.currentFile(MavenResolver.class);
     private static final Collection<String> REPOSITORIES;
     private static final String REPO_CENTRAL = "http://repo.maven.apache.org/maven2";
     private static final String REPO_JFROG_SNAPSHOTS = "http://oss.jfrog.org/oss-snapshot-local";
