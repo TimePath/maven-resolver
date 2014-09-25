@@ -42,9 +42,9 @@ public class MavenResolver {
     static {
         REPOSITORIES = new LinkedHashSet<>();
         addRepository(REPO_JFROG_SNAPSHOTS);
+        addRepository(REPO_CENTRAL);
         addRepository(REPO_JETBRAINS);
         addRepository(REPO_CUSTOM);
-        addRepository(REPO_CENTRAL);
     }
 
     /**

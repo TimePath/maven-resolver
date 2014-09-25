@@ -110,7 +110,9 @@ public class UpdateChecker {
     }
 
     public static String getProgramDirectory(Package aPackage) {
-        return MessageFormat.format("{0}/{1}/{2}/{3}", MavenResolver.getLocal(), aPackage.gid.replace('.', '/'), aPackage.aid, aPackage.ver);
+        Coordinate c = aPackage.coordinate;
+        return MessageFormat.format("{0}/{1}/{2}/{3}",
+                MavenResolver.getLocal(), c.groupId.replace('.', '/'), c.artifactId, c.version);
     }
 
     /**

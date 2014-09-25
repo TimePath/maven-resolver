@@ -12,7 +12,7 @@ public class Coordinate {
 
     private static final Logger LOG = Logger.getLogger(Coordinate.class.getName());
     private static Map<String, Coordinate> cache = new HashMap<>();
-    final String groupId, artifactId, version;
+    public final String groupId, artifactId, version;
     /**
      * Nullable
      */
