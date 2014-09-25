@@ -37,7 +37,7 @@ public class MavenResolver {
     private static final String REPO_JETBRAINS = "http://repository.jetbrains.com/all";
     private static final Pattern RE_VERSION = Pattern.compile("(\\d*)\\.(\\d*)\\.(\\d*)");
     private static final Logger LOG = Logger.getLogger(MavenResolver.class.getName());
-    private static final long META_LIFETIME = 10 * 60 * 1000; // 10 minutes
+    private static final long META_LIFETIME = 7 * 24 * 60 * 60 * 1000; // 1 week
 
     static {
         REPOSITORIES = new LinkedHashSet<>();
@@ -51,7 +51,7 @@ public class MavenResolver {
      * Cache of coordinates to base urls
      */
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Happens behind the scenes
-    private static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
+    private static final Cache<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
         @Override
         protected Future<String> fill(final Coordinate key) {
             LOG.log(Level.INFO, "Resolving baseURL (missed): {0}", key);
@@ -101,13 +101,7 @@ public class MavenResolver {
                                 String pom = IOUtils.requestPage(test + ".pom");
                                 if (pom == null) continue;
                                 // May as well cache the pom while we have it
-                                FutureTask<String> ft = new FutureTask<>(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                    }
-                                }, pom);
-                                ft.run();
-                                POM_CACHE.put(key, ft);
+                                POM_CACHE.put(key, makeFuture(pom));
                             }
                             url = test;
                         }
@@ -123,27 +117,17 @@ public class MavenResolver {
             });
         }
 
-        private void persist(Coordinate key, String url) {
-            Preferences cachedNode = getCached(key);
-            cachedNode.put("url", url);
-            cachedNode.putLong("expires", System.currentTimeMillis() + META_LIFETIME);
-            try {
-                cachedNode.flush();
-            } catch (BackingStoreException ignored) {
-            }
-        }
-
-        private Preferences getCached(Coordinate c) {
-            Preferences cachedNode = Preferences.userNodeForPackage(MavenResolver.class);
-            for (String nodeName : c.toString().replaceAll("[.:-]", "/").split("/")) {
-                cachedNode = cachedNode.node(nodeName);
-            }
-            return cachedNode;
-        }
-
         @Override
-        protected boolean expire(Coordinate key) {
-            return System.currentTimeMillis() >= getCached(key).getLong("expires", 0);
+        protected Future<String> expire(Coordinate key, Future<String> value) {
+            Preferences cached = getCached(key);
+            boolean expired = System.currentTimeMillis() >= cached.getLong("expires", 0);
+            if (expired) return null;
+            if (value == null) {
+                // Chance to initialize
+                String url = cached.get("url", null);
+                if (url != null) return makeFuture(url);
+            }
+            return value;
         }
     };
     public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
@@ -166,6 +150,40 @@ public class MavenResolver {
     };
 
     private MavenResolver() {
+    }
+
+    private static FutureTask<String> makeFuture(String s) {
+        FutureTask<String> future = new FutureTask<>(new Runnable() {
+            @Override
+            public void run() {
+            }
+        }, s);
+        future.run();
+        return future;
+    }
+
+    private static void persist(Coordinate key, String url) {
+        Preferences cachedNode = getCached(key);
+        cachedNode.put("url", url);
+        cachedNode.putLong("expires", System.currentTimeMillis() + META_LIFETIME);
+        try {
+            cachedNode.flush();
+        } catch (BackingStoreException ignored) {
+        }
+    }
+
+    private static Preferences getCached(Coordinate c) {
+        Preferences cachedNode = Preferences.userNodeForPackage(MavenResolver.class);
+        for (String nodeName : c.toString().replaceAll("[.:-]", "/").split("/")) {
+            cachedNode = cachedNode.node(nodeName);
+        }
+        return cachedNode;
+    }
+
+    public static void invalidateCaches() throws BackingStoreException {
+        for (Coordinate c : URL_CACHE.keySet()) {
+            getCached(c).removeNode();
+        }
     }
 
     /**
