@@ -149,6 +149,7 @@ public class MavenResolver {
             });
         }
     };
+    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
 
     private MavenResolver() {
     }
@@ -174,7 +175,7 @@ public class MavenResolver {
     }
 
     private static Preferences getCached(Coordinate c) {
-        Preferences cachedNode = Preferences.userNodeForPackage(MavenResolver.class);
+        Preferences cachedNode = PREFERENCES;
         for (String nodeName : c.toString().replaceAll("[.:-]", "/").split("/")) {
             cachedNode = cachedNode.node(nodeName);
         }
@@ -182,9 +183,8 @@ public class MavenResolver {
     }
 
     public static void invalidateCaches() throws BackingStoreException {
-        for (Coordinate c : URL_CACHE.keySet()) {
-            getCached(c).removeNode();
-        }
+        PREFERENCES.removeNode();
+        PREFERENCES.flush();
     }
 
     /**
