@@ -28,15 +28,23 @@ public class UpdateChecker {
      * @return true if matches SHA1 checksum
      */
     public static boolean verify(Package aPackage) {
+        return verify(aPackage, getFile(aPackage));
+    }
+
+    /**
+     * Check the integrity of a single package
+     *
+     * @param aPackage
+     * @return true if matches SHA1 checksum
+     */
+    public static boolean verify(Package aPackage, File existing) {
         LOG.log(Level.INFO, "Checking integrity of {0}", aPackage);
         try {
-            File existing = getFile(aPackage);
-            File checksum = new File(existing.getParent(), existing.getName() + '.' + ALGORITHM);
-            if (!checksum.exists() || !existing.exists()) {
+            if (!existing.exists()) {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
-            String expected = IOUtils.requestPage(checksum.toURI().toString());
+            String expected = getChecksum(aPackage, ALGORITHM);
             String actual = FileUtils.checksum(existing, ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
@@ -69,37 +77,6 @@ public class UpdateChecker {
     }
 
     /**
-     * Check a <b>single package</b> for updates
-     *
-     * @param aPackage
-     * @return false if completely up to date, true if up to date or working offline
-     */
-    public static boolean isLatest(Package aPackage) {
-        LOG.log(Level.INFO, "Checking {0} for updates...", aPackage);
-        try {
-            File existing = getFile(aPackage);
-            if (!existing.exists()) {
-                LOG.log(Level.INFO, "Don''t have {0}, not latest", existing);
-                return false;
-            }
-            String expected = getChecksum(aPackage, ALGORITHM);
-            String actual = FileUtils.checksum(existing, ALGORITHM);
-            LOG.log(Level.INFO, "Checksum: {0} {1}", new Object[]{expected, existing});
-            if (!actual.equals(expected)) {
-                LOG.log(Level.INFO,
-                        "Checksum mismatch for {0}, not latest. {1} vs {2}",
-                        new Object[]{existing, expected, actual});
-                return false;
-            }
-        } catch (IOException | NoSuchAlgorithmException ex) {
-            LOG.log(Level.SEVERE, null, ex);
-            return false;
-        }
-        LOG.log(Level.INFO, "{0} is up to date", aPackage);
-        return true;
-    }
-
-    /**
      * TODO: other package types
      *
      * @param aPackage
@@ -125,7 +102,7 @@ public class UpdateChecker {
     }
 
     public static String getFileName(Package aPackage) {
-        return FileUtils.name(getDownloadURL(aPackage));
+        return FileUtils.name(getDownloadURL(aPackage)); // ??? TODO: avoid network
     }
 
     public static String getChecksum(Package aPackage, String algorithm) {

@@ -11,6 +11,7 @@ import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.dom.DOMSource;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URLConnection;
@@ -51,6 +52,11 @@ public class Package {
     private Cache<String, String> checksums = new Cache<String, String>() {
         @Override
         protected String fill(String algorithm) {
+            File existing = UpdateChecker.getFile(Package.this);
+            File checksum = new File(existing.getParent(), existing.getName() + '.' + algorithm);
+            if (checksum.exists()) { // Avoid network
+                return IOUtils.requestPage(checksum.toURI().toString());
+            }
             return IOUtils.requestPage(UpdateChecker.getChecksumURL(Package.this, algorithm));
         }
     };
