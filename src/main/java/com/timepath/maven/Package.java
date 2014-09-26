@@ -149,7 +149,9 @@ public class Package {
     }
 
     public String getName() {
-        return name;
+        if (name != null) return name;
+        // Fallback
+        return coordinate.toString();
     }
 
     /**
