@@ -1,5 +1,7 @@
 package com.timepath.maven.model;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * TODO: 'import' scope
  *
@@ -33,7 +35,7 @@ public enum Scope {
 
     boolean transitive;
 
-    public static Scope from(String scope) {
+    public static Scope from(@Nullable String scope) {
         if (scope != null) {
             Scope s = Scope.valueOf(scope.toUpperCase());
             if (s != null) return s;

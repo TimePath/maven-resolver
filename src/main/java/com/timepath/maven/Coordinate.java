@@ -1,5 +1,8 @@
 package com.timepath.maven;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -11,6 +14,7 @@ import java.util.logging.Logger;
 public class Coordinate {
 
     private static final Logger LOG = Logger.getLogger(Coordinate.class.getName());
+    @NotNull
     private static Map<String, Coordinate> cache = new HashMap<>();
     public final String groupId, artifactId, version;
     /**
@@ -27,7 +31,7 @@ public class Coordinate {
     }
 
     public synchronized static Coordinate from(String groupId, String artifactId, String version, String classifier) {
-        String s = format(groupId, artifactId, version, classifier);
+        @NotNull String s = format(groupId, artifactId, version, classifier);
         Coordinate c = cache.get(s);
         if (c == null) {
             LOG.log(Level.FINE, "Creating {0}", s);
@@ -37,6 +41,7 @@ public class Coordinate {
         return c;
     }
 
+    @NotNull
     private static String format(String groupId, String artifactId, String version, String classifier) {
         return groupId + ':' + artifactId + ':' + version + ':' + classifier;
     }
@@ -58,13 +63,14 @@ public class Coordinate {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Coordinate that = (Coordinate) o;
+        @NotNull Coordinate that = (Coordinate) o;
         return toString().equals(that.toString());
     }
 
+    @NotNull
     @Override
     public String toString() {
         return format(groupId, artifactId, version, classifier);

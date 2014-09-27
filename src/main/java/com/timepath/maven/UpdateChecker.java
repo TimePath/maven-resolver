@@ -1,6 +1,8 @@
 package com.timepath.maven;
 
 import com.timepath.FileUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,7 +28,7 @@ public class UpdateChecker {
      * @param aPackage
      * @return true if matches SHA1 checksum
      */
-    public static boolean verify(Package aPackage) {
+    public static boolean verify(@NotNull Package aPackage) {
         return verify(aPackage, getFile(aPackage));
     }
 
@@ -36,22 +38,22 @@ public class UpdateChecker {
      * @param aPackage
      * @return true if matches SHA1 checksum
      */
-    public static boolean verify(Package aPackage, File existing) {
+    public static boolean verify(@NotNull Package aPackage, @NotNull File existing) {
         LOG.log(Level.INFO, "Checking integrity of {0}", aPackage);
         try {
             if (!existing.exists()) {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
-            String expected = getChecksum(aPackage, ALGORITHM);
-            String actual = FileUtils.checksum(existing, ALGORITHM);
+            @Nullable String expected = getChecksum(aPackage, ALGORITHM);
+            @NotNull String actual = FileUtils.checksum(existing, ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, reacquire. {1} vs {2}",
                         new Object[]{existing, expected, actual});
                 return false;
             }
-        } catch (IOException | NoSuchAlgorithmException ex) {
+        } catch (@NotNull IOException | NoSuchAlgorithmException ex) {
             LOG.log(Level.SEVERE, null, ex);
             return false;
         }
@@ -63,11 +65,12 @@ public class UpdateChecker {
      * @param aPackage
      * @return all transitive updates, flattened. Includes self.
      */
-    public static Set<Package> getUpdates(Package aPackage) {
+    @NotNull
+    public static Set<Package> getUpdates(@NotNull Package aPackage) {
         Set<Package> downloads = aPackage.getDownloads();
         LOG.log(Level.INFO, "Depends: {0} on {1}", new Object[]{aPackage, downloads.toString()});
-        Set<Package> outdated = new HashSet<>();
-        for (Package p : downloads) {
+        @NotNull Set<Package> outdated = new HashSet<>();
+        for (@NotNull Package p : downloads) {
             if (verify(p)) continue;
             LOG.log(Level.INFO, "{0} is outdated", p);
             outdated.add(p);
@@ -81,11 +84,13 @@ public class UpdateChecker {
      * @param aPackage
      * @return
      */
-    public static String getDownloadURL(Package aPackage) {
+    @NotNull
+    public static String getDownloadURL(@NotNull Package aPackage) {
         return aPackage.baseURL + ".jar";
     }
 
-    public static String getProgramDirectory(Package aPackage) {
+    @NotNull
+    public static String getProgramDirectory(@NotNull Package aPackage) {
         Coordinate c = aPackage.coordinate;
         return MessageFormat.format("{0}/{1}/{2}/{3}",
                 MavenResolver.getLocal(), c.groupId.replace('.', '/'), c.artifactId, c.version);
@@ -96,23 +101,28 @@ public class UpdateChecker {
      *
      * @return
      */
-    public static String getChecksumURL(Package aPackage, String algorithm) {
+    @NotNull
+    public static String getChecksumURL(@NotNull Package aPackage, @NotNull String algorithm) {
         return aPackage.baseURL + ".jar." + algorithm.toLowerCase();
     }
 
-    public static String getFileName(Package aPackage) {
+    @NotNull
+    public static String getFileName(@NotNull Package aPackage) {
         return FileUtils.name(getDownloadURL(aPackage)); // ??? TODO: avoid network
     }
 
-    public static String getChecksum(Package aPackage, String algorithm) {
+    @Nullable
+    public static String getChecksum(@NotNull Package aPackage, @NotNull String algorithm) {
         return aPackage.getChecksum(algorithm.toLowerCase());
     }
 
-    public static File getFile(Package aPackage) {
+    @NotNull
+    public static File getFile(@NotNull Package aPackage) {
         return new File(getProgramDirectory(aPackage), getFileName(aPackage));
     }
 
-    public static File getChecksumFile(Package aPackage, String algorithm) {
+    @NotNull
+    public static File getChecksumFile(@NotNull Package aPackage, @NotNull String algorithm) {
         return new File(getProgramDirectory(aPackage), FileUtils.name(getChecksumURL(aPackage, algorithm)));
     }
 
