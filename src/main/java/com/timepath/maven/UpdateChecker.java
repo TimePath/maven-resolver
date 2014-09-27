@@ -1,7 +1,6 @@
 package com.timepath.maven;
 
 import com.timepath.FileUtils;
-import com.timepath.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
