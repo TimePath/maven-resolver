@@ -33,6 +33,8 @@ public class MavenResolver {
 
     public static final Preferences SETTINGS = Preferences.userRoot().node("timepath");
     public static final File CURRENT_FILE = Utils.currentFile(MavenResolver.class);
+    public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
+    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
     @NotNull
     private static final Collection<String> REPOSITORIES;
     private static final String REPO_CENTRAL = "http://repo.maven.apache.org/maven2";
@@ -138,7 +140,6 @@ public class MavenResolver {
             return value;
         }
     };
-    public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
     /**
      * Cache of coordinates to pom documents
      */
@@ -158,7 +159,6 @@ public class MavenResolver {
             });
         }
     };
-    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
 
     private MavenResolver() {
     }
