@@ -38,7 +38,12 @@ import java.util.regex.Pattern;
 public class Package {
 
     private static final Logger LOG = Logger.getLogger(Package.class.getName());
+    private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(Package.class.getName());
     private static final Map<Coordinate, Future<Set<Package>>> FUTURES = new HashMap<>();
+    /**
+     * Maven coordinates
+     */
+    public final Coordinate coordinate;
     /**
      * Base URL in maven repo
      */
@@ -66,10 +71,6 @@ public class Package {
         }
     };
     /**
-     * Maven coordinates
-     */
-    public final Coordinate coordinate;
-    /**
      * Download status
      */
     public long progress, size;
@@ -96,7 +97,7 @@ public class Package {
         if (root == null) throw new IllegalArgumentException("The root node cannot be null");
 
         String pprint = XMLUtils.pprint(new DOMSource(root), 2);
-        LOG.log(Level.FINER, "Constructing Package from node:\n{0}", pprint);
+        LOG.log(Level.FINER, RESOURCE_BUNDLE.getString("parse"), pprint);
 
         @NonNls @Nullable String gid = inherit(root, "groupId");
         @NonNls @Nullable String aid = XMLUtils.get(root, "artifactId");
@@ -116,7 +117,7 @@ public class Package {
         String base;
         try {
             base = MavenResolver.resolve(coordinate);
-            LOG.log(Level.INFO, "Resolved to {0}", base);
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), new Object[]{coordinate, base});
         } catch (FileNotFoundException e) {
             LOG.log(Level.SEVERE, null, e);
             return null;
@@ -195,7 +196,7 @@ public class Package {
             key = key.toLowerCase();
             if (key.startsWith(prefix)) {
                 @NotNull String algorithm = key.substring(prefix.length());
-                LOG.log(Level.FINE, "Associating checksum: {0} {1}", new Object[]{algorithm, this});
+                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), new Object[]{algorithm, this});
                 checksums.put(algorithm, field.getValue().get(0));
             }
         }
@@ -213,7 +214,7 @@ public class Package {
     @Override
     public int hashCode() {
         if (baseURL != null) return baseURL.hashCode();
-        LOG.log(Level.SEVERE, "baseURL not set: {0}", this);
+        LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.url"), this);
         return 0;
     }
 
@@ -236,12 +237,12 @@ public class Package {
      */
     @NotNull
     private Set<Package> initDownloads() {
-        LOG.log(Level.INFO, "initDownloads: {0}", this);
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("downloads.init"), this);
         Set<Package> set = new HashSet<>();
         set.add(this);
         try (InputStream is = MavenResolver.resolvePomStream(coordinate)) {
             if (is == null) {
-                LOG.log(Level.SEVERE, "Unable to locate POM: {0}", coordinate);
+                LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), coordinate);
                 return set;
             }
             pom = XMLUtils.rootNode(is, "project");
@@ -284,14 +285,14 @@ public class Package {
                     if (result != null) {
                         set.addAll(result);
                     } else {
-                        LOG.log(Level.SEVERE, "Download enumeration failed:\n{0}", entry.getKey());
+                        LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.single"), entry.getKey());
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     LOG.log(Level.SEVERE, null, e);
                 }
             }
         } catch (IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
-            LOG.log(Level.SEVERE, "initDownloads", e);
+            LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.all"), e);
         }
         return set;
     }

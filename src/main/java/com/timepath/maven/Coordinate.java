@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,6 +17,7 @@ public final class Coordinate {
 
     private static final Logger LOG = Logger.getLogger(Coordinate.class.getName());
     private static final Map<String, Coordinate> CACHE = new HashMap<>();
+    private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(Coordinate.class.getName());
     @NonNls
     @NotNull
     public final String groupId;
@@ -40,7 +42,7 @@ public final class Coordinate {
         String s = format(groupId, artifactId, version, classifier);
         Coordinate coordinate = CACHE.get(s);
         if (coordinate == null) {
-            LOG.log(Level.FINE, "Creating {0}", s);
+            LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("coordinate.new"), s);
             coordinate = new Coordinate(groupId, artifactId, version, classifier);
             CACHE.put(s, coordinate);
         }

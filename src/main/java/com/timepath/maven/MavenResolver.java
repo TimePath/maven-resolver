@@ -16,10 +16,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,16 +36,20 @@ public class MavenResolver {
     public static final String SUFFIX_SNAPSHOT = "-SNAPSHOT";
     @NonNls
     public static final String SUFFIX_POM = ".pom";
+    @NonNls
+    public static final String CACHE_URL = "url";
+    @NonNls
+    public static final String CACHE_EXPIRES = "expires";
     /**
      * Cache of coordinates to base urls
      */
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     @NonNls
-    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Happens behind the scenes
-    private static final Cache<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
+    private static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
         @NotNull
         @Override
         protected Future<String> fill(@NotNull final Coordinate key) {
-            LOG.log(Level.INFO, "Resolving baseURL (missed): {0}", key);
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
             @SuppressWarnings("HardcodedFileSeparator") char c = '/';
             final String s = c + key.groupId.replace('.', c) + c + key.artifactId + c + key.version + c;
             final String classifier = ((key.classifier == null) || key.classifier.isEmpty()) ? "" : ('-' + key.classifier);
@@ -64,7 +65,7 @@ public class MavenResolver {
                     if (url != null) {
                         persist(key, url); // Update persistent cache
                     } else {
-                        LOG.log(Level.WARNING, "Resolving baseURL (failed): {0}", key);
+                        LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.url.fail"), key);
                     }
                     return url;
                 }
@@ -97,18 +98,13 @@ public class MavenResolver {
                                 (buildNumber == null) ? "" : ('-' + buildNumber),
                                 classifier);
                     } catch (FileNotFoundException ignored) {
-                        LOG.log(Level.WARNING, "Metadata not found for {0} in {1}", new Object[]{key, base});
+                        LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail.version"), new Object[]{key, base});
                     } catch (IOException | ParserConfigurationException | SAXException e) {
-                        LOG.log(Level.WARNING, MessageFormat.format("Unable to resolve {0}", key), e);
+                        LOG.log(Level.WARNING, MessageFormat.format(RESOURCE_BUNDLE.getString("resolve.pom.fail"), key), e);
                     }
                     return null;
                 }
 
-                /**
-                 * Simple string manipulation with a test
-                 * @param base
-                 * @return
-                 */
                 @Nullable
                 private String resolveRelease(@NonNls String base) {
                     @NonNls String test = MessageFormat.format("{0}{1}-{2}{3}",
@@ -131,11 +127,11 @@ public class MavenResolver {
         @Override
         protected Future<String> expire(@NotNull Coordinate key, @Nullable Future<String> value) {
             Preferences cached = getCached(key);
-            boolean expired = System.currentTimeMillis() >= cached.getLong("expires", 0);
+            boolean expired = System.currentTimeMillis() >= cached.getLong(CACHE_EXPIRES, 0);
             if (expired) return null;
             if (value == null) {
                 // Chance to initialize
-                String url = cached.get("url", null);
+                String url = cached.get(CACHE_URL, null);
                 if (url != null) return makeFuture(url);
             }
             return value;
@@ -143,26 +139,21 @@ public class MavenResolver {
     };
     @NonNls
     public static final String MAVEN_REPO_LOCAL = "maven.repo.local";
+    private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(MavenResolver.class.getName());
     @NotNull
     private static final Collection<String> REPOSITORIES;
-    @NonNls
-    private static final String REPO_CENTRAL = "http://repo.maven.apache.org/maven2";
-    @NonNls
-    private static final String REPO_JFROG_SNAPSHOTS = "http://oss.jfrog.org/oss-snapshot-local";
-    @NonNls
-    private static final String REPO_CUSTOM = "https://dl.dropboxusercontent.com/u/42745598/maven2";
-    @NonNls
-    private static final String REPO_JETBRAINS = "http://repository.jetbrains.com/all";
     private static final Pattern RE_VERSION = Pattern.compile("(\\d*)\\.(\\d*)\\.(\\d*)");
     private static final Logger LOG = Logger.getLogger(MavenResolver.class.getName());
     private static final long META_LIFETIME = TimeUnit.DAYS.toMillis(7);
+    private static final Pattern RE_TRAILING_SLASH = Pattern.compile("/$");
+    private static final Pattern RE_COORDINATE_SEPARATORS = Pattern.compile("[.:-]");
 
     static {
-        REPOSITORIES = new LinkedHashSet<>();
-        addRepository(REPO_JFROG_SNAPSHOTS);
-        addRepository(REPO_CENTRAL);
-        addRepository(REPO_JETBRAINS);
-        addRepository(REPO_CUSTOM);
+        REPOSITORIES = new LinkedHashSet<>(4);
+        addRepository("http://oss.jfrog.org/oss-snapshot-local");
+        addRepository("http://repo.maven.apache.org/maven2");
+        addRepository("http://repository.jetbrains.com/all");
+        addRepository("https://dl.dropboxusercontent.com/u/42745598/maven2");
     }
 
     /**
@@ -172,21 +163,19 @@ public class MavenResolver {
         @NotNull
         @Override
         protected Future<String> fill(final Coordinate key) {
-            LOG.log(Level.INFO, "Resolving POM (missed): {0}", key);
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom.miss"), key);
             return THREAD_POOL.submit(new Callable<String>() {
                 @Nullable
                 @Override
                 public String call() throws FileNotFoundException {
                     String resolved = resolve(key, "pom");
                     String pom = (resolved != null) ? IOUtils.requestPage(resolved) : null;
-                    if (pom == null) LOG.log(Level.WARNING, "Resolving POM (failed): {0}", key);
+                    if (pom == null) LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), key);
                     return pom;
                 }
             });
         }
     };
-    private static final Pattern RE_TRAILING_SLASH = Pattern.compile("/$");
-    private static final Pattern RE_COORDINATE_SEPARATORS = Pattern.compile("[.:-]");
 
     private MavenResolver() {
     }
@@ -204,8 +193,8 @@ public class MavenResolver {
 
     private static void persist(@NotNull Coordinate key, String url) {
         Preferences cachedNode = getCached(key);
-        cachedNode.put("url", url);
-        cachedNode.putLong("expires", System.currentTimeMillis() + META_LIFETIME);
+        cachedNode.put(CACHE_URL, url);
+        cachedNode.putLong(CACHE_EXPIRES, System.currentTimeMillis() + META_LIFETIME);
         try {
             cachedNode.flush();
         } catch (BackingStoreException ignored) {
@@ -230,7 +219,7 @@ public class MavenResolver {
      *
      * @param url the URL
      */
-    public static void addRepository(@NotNull CharSequence url) {
+    public static void addRepository(@NonNls @NotNull CharSequence url) {
         REPOSITORIES.add(sanitize(url));
     }
 
@@ -267,7 +256,7 @@ public class MavenResolver {
 
     @Nullable
     private static byte[] resolvePom(Coordinate coordinate) throws ExecutionException, InterruptedException {
-        LOG.log(Level.INFO, "Resolving POM: {0}", coordinate);
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom"), coordinate);
         String pom = POM_CACHE.get(coordinate).get();
         return (pom != null) ? pom.getBytes(StandardCharsets.UTF_8) : null;
     }
@@ -282,7 +271,7 @@ public class MavenResolver {
      */
     @NonNls
     @Nullable
-    public static String resolve(Coordinate coordinate, String packaging) throws FileNotFoundException {
+    public static String resolve(Coordinate coordinate, @NonNls String packaging) throws FileNotFoundException {
         String resolved = resolve(coordinate);
         if (resolved == null) return null;
         return resolved + '.' + packaging;
@@ -294,7 +283,7 @@ public class MavenResolver {
      * @throws java.io.FileNotFoundException if unresolvable
      */
     public static String resolve(Coordinate coordinate) throws FileNotFoundException {
-        LOG.log(Level.INFO, "Resolving baseURL: {0}", coordinate);
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url"), coordinate);
         try {
             Future<String> future = URL_CACHE.get(coordinate);
             if (future != null) {
@@ -304,7 +293,7 @@ public class MavenResolver {
         } catch (InterruptedException | ExecutionException e) {
             LOG.log(Level.SEVERE, null, e);
         }
-        throw new FileNotFoundException(MessageFormat.format("Could not resolve {0}", coordinate));
+        throw new FileNotFoundException(MessageFormat.format(RESOURCE_BUNDLE.getString("resolve.url.fail"), coordinate));
     }
 
     /**

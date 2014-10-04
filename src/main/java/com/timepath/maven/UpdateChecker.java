@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 import java.util.HashSet;
+import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,6 +20,7 @@ import java.util.logging.Logger;
  */
 public class UpdateChecker {
 
+    public static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(UpdateChecker.class.getName());
     @NonNls
     public static final String ALGORITHM = "sha1";
 
@@ -41,17 +43,17 @@ public class UpdateChecker {
      * @return true if matches SHA1 checksum
      */
     public static boolean verify(@NotNull Package aPackage, @NotNull File existing) {
-        LOG.log(Level.INFO, "Checking integrity of {0}", aPackage);
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.check"), aPackage);
         try {
             if (!existing.exists()) {
-                LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
+                LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.missing"), existing);
                 return false;
             }
             @NonNls @Nullable String expected = getChecksum(aPackage, ALGORITHM);
             @NonNls @NotNull String actual = FileUtils.checksum(existing, ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
-                        "Checksum mismatch for {0}, reacquire. {1} vs {2}",
+                        RESOURCE_BUNDLE.getString("integrity.mismatch"),
                         new Object[]{existing, expected, actual});
                 return false;
             }
@@ -59,7 +61,7 @@ public class UpdateChecker {
             LOG.log(Level.SEVERE, null, ex);
             return false;
         }
-        LOG.log(Level.INFO, "Verified {0}", aPackage);
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.match"), aPackage);
         return true;
     }
 
@@ -70,11 +72,11 @@ public class UpdateChecker {
     @NotNull
     public static Set<Package> getUpdates(@NotNull Package aPackage) {
         Set<Package> downloads = aPackage.getDownloads();
-        LOG.log(Level.INFO, "Depends: {0} on {1}", new Object[]{aPackage, downloads.toString()});
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("depends.all"), new Object[]{aPackage, downloads.toString()});
         @NotNull Set<Package> outdated = new HashSet<>();
         for (@NotNull Package p : downloads) {
             if (verify(p)) continue;
-            LOG.log(Level.INFO, "{0} is outdated", p);
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("depends.outdated"), p);
             outdated.add(p);
         }
         return outdated;
