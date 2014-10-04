@@ -1,5 +1,6 @@
 package com.timepath.maven;
 
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,50 +12,46 @@ import java.util.logging.Logger;
 /**
  * @author TimePath
  */
-public class Coordinate {
+public final class Coordinate {
 
     private static final Logger LOG = Logger.getLogger(Coordinate.class.getName());
+    private static final Map<String, Coordinate> CACHE = new HashMap<>();
+    @NonNls
     @NotNull
-    private static Map<String, Coordinate> cache = new HashMap<>();
-    public final String groupId, artifactId, version;
-    /**
-     * Nullable
-     */
-    final String classifier;
+    public final String groupId;
+    @NonNls
+    @NotNull
+    public final String artifactId;
+    @NonNls
+    @NotNull
+    public final String version;
+    @NonNls
+    @Nullable
+    public final String classifier;
 
-    private Coordinate(String groupId, String artifactId, String version, String classifier) {
+    private Coordinate(@NotNull String groupId, @NotNull String artifactId, @NotNull String version, @Nullable String classifier) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
         this.classifier = classifier;
-        validate();
     }
 
-    public synchronized static Coordinate from(String groupId, String artifactId, String version, String classifier) {
-        @NotNull String s = format(groupId, artifactId, version, classifier);
-        Coordinate c = cache.get(s);
-        if (c == null) {
+    public static synchronized Coordinate from(@NotNull String groupId, @NotNull String artifactId, @NotNull String version, @Nullable String classifier) {
+        String s = format(groupId, artifactId, version, classifier);
+        Coordinate coordinate = CACHE.get(s);
+        if (coordinate == null) {
             LOG.log(Level.FINE, "Creating {0}", s);
-            c = new Coordinate(groupId, artifactId, version, classifier);
-            cache.put(s, c);
+            coordinate = new Coordinate(groupId, artifactId, version, classifier);
+            CACHE.put(s, coordinate);
         }
-        return c;
+        return coordinate;
     }
 
+    @NonNls
     @NotNull
-    private static String format(String groupId, String artifactId, String version, String classifier) {
-        return groupId + ':' + artifactId + ':' + version + ':' + classifier;
-    }
-
-    /**
-     * Validates a coordinate
-     *
-     * @throws IllegalArgumentException if a parameter is null
-     */
-    protected void validate() {
-        if (groupId == null) throw new IllegalArgumentException("groupId cannot be null: " + this);
-        if (artifactId == null) throw new IllegalArgumentException("artifactId cannot be null: " + this);
-        if (version == null) throw new IllegalArgumentException("version cannot be null: " + this);
+    private static String format(String groupId, String artifactId, String version, @Nullable String classifier) {
+        @NonNls char c = ':';
+        return groupId + c + artifactId + c + version + c + classifier;
     }
 
     @Override
@@ -63,13 +60,14 @@ public class Coordinate {
     }
 
     @Override
-    public boolean equals(@Nullable Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        @NotNull Coordinate that = (Coordinate) o;
-        return toString().equals(that.toString());
+    public boolean equals(@Nullable Object obj) {
+        if (this == obj) return true;
+        if ((obj == null) || (getClass() != obj.getClass())) return false;
+        Coordinate other = (Coordinate) obj;
+        return toString().equals(other.toString());
     }
 
+    @NonNls
     @NotNull
     @Override
     public String toString() {

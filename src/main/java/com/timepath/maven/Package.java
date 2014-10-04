@@ -6,6 +6,7 @@ import com.timepath.XMLUtils;
 import com.timepath.maven.model.Exclusion;
 import com.timepath.maven.model.Scope;
 import com.timepath.util.Cache;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Node;
@@ -16,7 +17,9 @@ import javax.xml.transform.dom.DOMSource;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLConnection;
+import java.text.MessageFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
@@ -37,41 +40,48 @@ public class Package {
     private static final Logger LOG = Logger.getLogger(Package.class.getName());
     private static final Map<Coordinate, Future<Set<Package>>> FUTURES = new HashMap<>();
     /**
-     * Maven coordinates
-     */
-    public Coordinate coordinate;
-    /**
-     * Download status
-     */
-    public long progress, size;
-    /**
      * Base URL in maven repo
      */
-    String baseURL;
+    @NonNls
+    final String baseURL;
     /**
      * Artifact checksums
      */
     @NotNull
-    private Cache<String, String> checksums = new Cache<String, String>() {
+    private final Map<String, String> checksums = new Cache<String, String>() {
+        /**
+         *
+         * @param key the algorithm
+         * @return the checksum
+         */
         @Nullable
         @Override
-        protected String fill(@NotNull String algorithm) {
+        protected String fill(@NotNull String key) {
             @NotNull File existing = UpdateChecker.getFile(Package.this);
-            @NotNull File checksum = new File(existing.getParent(), existing.getName() + '.' + algorithm);
+            @NotNull File checksum = new File(existing.getParent(), existing.getName() + '.' + key);
             if (checksum.exists()) { // Avoid network
                 return IOUtils.requestPage(checksum.toURI().toString());
             }
-            return IOUtils.requestPage(UpdateChecker.getChecksumURL(Package.this, algorithm));
+            return IOUtils.requestPage(UpdateChecker.getChecksumURL(Package.this, key));
         }
     };
+    /**
+     * Maven coordinates
+     */
+    public final Coordinate coordinate;
+    /**
+     * Download status
+     */
+    public long progress, size;
     private Set<Package> downloads;
     @Nullable
     private String name;
     private boolean self;
     private Node pom;
 
-    public Package(String gid, String aid, String ver) {
-        this.coordinate = Coordinate.from(gid, aid, ver, null);
+    public Package(String baseURL, Coordinate coordinate) {
+        this.baseURL = baseURL;
+        this.coordinate = coordinate;
     }
 
     /**
@@ -88,44 +98,36 @@ public class Package {
         String pprint = XMLUtils.pprint(new DOMSource(root), 2);
         LOG.log(Level.FINER, "Constructing Package from node:\n{0}", pprint);
 
-        @Nullable String gid = inherit(root, "groupId");
-        @Nullable String aid = XMLUtils.get(root, "artifactId");
-        @Nullable String ver = inherit(root, "version");
-        if (gid == null) { // Invalid pom
-            LOG.log(Level.WARNING, "Invalid POM, no groupId");
-            return null;
-        }
+        @NonNls @Nullable String gid = inherit(root, "groupId");
+        @NonNls @Nullable String aid = XMLUtils.get(root, "artifactId");
+        @NonNls @Nullable String ver = inherit(root, "version");
+        if (gid == null)
+            throw new IllegalArgumentException("groupId cannot be null");
+        if (aid == null)
+            throw new IllegalArgumentException("artifactId cannot be null");
         if (ver == null) { // TODO: dependencyManagement/dependencies/dependency/version
-            throw new UnsupportedOperationException("Null version: " + String.format("%s:%s", gid, aid));
+            throw new UnsupportedOperationException(MessageFormat.format("Null version: {0}:{1}", gid, aid));
         }
         if (context != null) {
-            gid = expand(context, gid.replace("${project.groupId}", context.coordinate.groupId));
-            ver = expand(context, ver.replace("${project.version}", context.coordinate.version));
+            gid = context.expand(gid.replace("${project.groupId}", context.coordinate.groupId));
+            ver = context.expand(ver.replace("${project.version}", context.coordinate.version));
         }
-        @NotNull Package p = new Package(gid, aid, ver);
-        p.name = XMLUtils.get(root, "name");
+        Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
+        String base;
         try {
-            p.baseURL = MavenResolver.resolve(p.coordinate);
-            LOG.log(Level.INFO, "Resolved to {0}", p.baseURL);
+            base = MavenResolver.resolve(coordinate);
+            LOG.log(Level.INFO, "Resolved to {0}", base);
         } catch (FileNotFoundException e) {
             LOG.log(Level.SEVERE, null, e);
+            return null;
         }
+        Package p = new Package(base, coordinate);
+        p.name = XMLUtils.get(root, "name");
         return p;
     }
 
-
-    public static boolean isSelf(@NotNull Package aPackage) {
-        return aPackage.self
-                || ("launcher".equals(aPackage.coordinate.artifactId)
-                && "com.timepath".equals(aPackage.coordinate.groupId));
-    }
-
-    public static void setSelf(@NotNull Package aPackage, final boolean self) {
-        aPackage.self = self;
-    }
-
     @Nullable
-    private static String inherit(Node root, @NotNull String name) {
+    private static String inherit(Node root, @NonNls @NotNull String name) {
         @Nullable String ret = XMLUtils.get(root, name);
         if (ret == null) { // Must be defined by a parent pom
             @Nullable Node parent = null;
@@ -144,18 +146,29 @@ public class Package {
      * TODO: recursion
      */
     @NotNull
-    private static String expand(@NotNull Package context, @NotNull String string) {
-        @NotNull Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(string);
+    private String expand(@NotNull String s) {
+        @NotNull Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(s);
         while (matcher.find()) {
-            String property = matcher.group(1);
-            @NotNull List<Node> properties = XMLUtils.getElements(context.pom, "properties");
+            @NonNls String property = matcher.group(1);
+            @NotNull List<Node> properties = XMLUtils.getElements(pom, "properties");
             Node propertyNodes = properties.get(0);
-            for (@NotNull Node n : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
-                String value = n.getFirstChild().getNodeValue();
-                string = string.replace("${" + property + "}", value);
+            for (@NotNull Node node : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
+                String value = node.getFirstChild().getNodeValue();
+                @NonNls String target = "${" + property + '}';
+                s = s.replace(target, value);
             }
         }
-        return string;
+        return s;
+    }
+
+    public boolean isSelf() {
+        return self
+                || ("launcher".equals(coordinate.artifactId)
+                && "com.timepath".equals(coordinate.groupId));
+    }
+
+    public void setSelf(boolean self) {
+        this.self = self;
     }
 
     @Nullable
@@ -176,9 +189,10 @@ public class Package {
      * @param connection
      */
     public void associate(@NotNull URLConnection connection) {
-        @NotNull String prefix = "x-checksum-";
-        for (@NotNull Map.Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
-            @NotNull String key = String.valueOf(field.getKey()).toLowerCase(); // Null keys!
+        @NonNls String prefix = "x-checksum-";
+        for (@NonNls @NotNull Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
+            @NonNls String key = String.valueOf(field.getKey()); // Null keys!
+            key = key.toLowerCase();
             if (key.startsWith(prefix)) {
                 @NotNull String algorithm = key.substring(prefix.length());
                 LOG.log(Level.FINE, "Associating checksum: {0} {1}", new Object[]{algorithm, this});
@@ -193,29 +207,28 @@ public class Package {
      * @return all transitive packages, flattened. Includes self.
      */
     public Set<Package> getDownloads() {
-        return downloads == null ? downloads = Collections.unmodifiableSet(initDownloads()) : downloads;
+        return (downloads == null) ? (downloads = Collections.unmodifiableSet(initDownloads())) : downloads;
     }
 
     @Override
     public int hashCode() {
-        if (baseURL != null) {
-            return baseURL.hashCode();
-        }
+        if (baseURL != null) return baseURL.hashCode();
         LOG.log(Level.SEVERE, "baseURL not set: {0}", this);
         return 0;
     }
 
     @Override
-    public boolean equals(@Nullable final Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        return baseURL.equals(((Package) o).baseURL);
+    public boolean equals(@Nullable Object obj) {
+        if (this == obj) return true;
+        if ((obj == null) || (getClass() != obj.getClass())) return false;
+        return baseURL.equals(((Package) obj).baseURL);
     }
 
     @Nullable
     @Override
     public String toString() {
-        return name != null ? name : baseURL != null ? FileUtils.name(baseURL) : coordinate.toString();
+        if (name != null) return name;
+        else return ((baseURL != null) ? FileUtils.name(baseURL) : coordinate.toString());
     }
 
     /**
@@ -224,16 +237,19 @@ public class Package {
     @NotNull
     private Set<Package> initDownloads() {
         LOG.log(Level.INFO, "initDownloads: {0}", this);
-        @NotNull Set<Package> set = new HashSet<>();
+        Set<Package> set = new HashSet<>();
         set.add(this);
-        try {
-            // Pull in the pom
-            pom = XMLUtils.rootNode(MavenResolver.resolvePomStream(coordinate), "project");
-            @NotNull Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
+        try (InputStream is = MavenResolver.resolvePomStream(coordinate)) {
+            if (is == null) {
+                LOG.log(Level.SEVERE, "Unable to locate POM: {0}", coordinate);
+                return set;
+            }
+            pom = XMLUtils.rootNode(is, "project");
+            Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
             for (final Node depNode : XMLUtils.getElements(pom, "dependencies/dependency")) {
                 if (Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) continue;
                 if (!Scope.from(XMLUtils.get(depNode, "scope")).isTransitive()) continue;
-                @Nullable final Package dep = Package.parse(depNode, Package.this); // TODO: thread this potentially long call
+                final Package dep = parse(depNode, this); // TODO: thread this potentially long call
                 synchronized (FUTURES) {
                     Future<Set<Package>> future = FUTURES.get(dep.coordinate);
                     if (future == null) {
@@ -262,7 +278,7 @@ public class Package {
                     locals.put(dep.coordinate, future);
                 }
             }
-            for (@NotNull Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
+            for (Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
                 try {
                     Set<Package> result = entry.getValue().get();
                     if (result != null) {
@@ -270,11 +286,11 @@ public class Package {
                     } else {
                         LOG.log(Level.SEVERE, "Download enumeration failed:\n{0}", entry.getKey());
                     }
-                } catch (@NotNull InterruptedException | ExecutionException e) {
+                } catch (InterruptedException | ExecutionException e) {
                     LOG.log(Level.SEVERE, null, e);
                 }
             }
-        } catch (@NotNull IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
+        } catch (IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
             LOG.log(Level.SEVERE, "initDownloads", e);
         }
         return set;

@@ -1,6 +1,7 @@
 package com.timepath.maven;
 
 import com.timepath.FileUtils;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +19,7 @@ import java.util.logging.Logger;
  */
 public class UpdateChecker {
 
+    @NonNls
     public static final String ALGORITHM = "sha1";
 
     private static final Logger LOG = Logger.getLogger(UpdateChecker.class.getName());
@@ -45,8 +47,8 @@ public class UpdateChecker {
                 LOG.log(Level.INFO, "Don''t have {0}, reacquire", existing);
                 return false;
             }
-            @Nullable String expected = getChecksum(aPackage, ALGORITHM);
-            @NotNull String actual = FileUtils.checksum(existing, ALGORITHM);
+            @NonNls @Nullable String expected = getChecksum(aPackage, ALGORITHM);
+            @NonNls @NotNull String actual = FileUtils.checksum(existing, ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(Level.INFO,
                         "Checksum mismatch for {0}, reacquire. {1} vs {2}",
@@ -84,6 +86,7 @@ public class UpdateChecker {
      * @param aPackage
      * @return
      */
+    @NonNls
     @NotNull
     public static String getDownloadURL(@NotNull Package aPackage) {
         return aPackage.baseURL + ".jar";
@@ -91,9 +94,9 @@ public class UpdateChecker {
 
     @NotNull
     public static String getProgramDirectory(@NotNull Package aPackage) {
-        Coordinate c = aPackage.coordinate;
+        Coordinate coordinate = aPackage.coordinate;
         return MessageFormat.format("{0}/{1}/{2}/{3}",
-                MavenResolver.getLocal(), c.groupId.replace('.', '/'), c.artifactId, c.version);
+                MavenResolver.getLocal(), coordinate.groupId.replace('.', '/'), coordinate.artifactId, coordinate.version);
     }
 
     /**
@@ -101,8 +104,9 @@ public class UpdateChecker {
      *
      * @return
      */
+    @NonNls
     @NotNull
-    public static String getChecksumURL(@NotNull Package aPackage, @NotNull String algorithm) {
+    public static String getChecksumURL(@NotNull Package aPackage, @NonNls @NotNull String algorithm) {
         return aPackage.baseURL + ".jar." + algorithm.toLowerCase();
     }
 
@@ -112,7 +116,7 @@ public class UpdateChecker {
     }
 
     @Nullable
-    public static String getChecksum(@NotNull Package aPackage, @NotNull String algorithm) {
+    public static String getChecksum(@NotNull Package aPackage, @NonNls @NotNull String algorithm) {
         return aPackage.getChecksum(algorithm.toLowerCase());
     }
 

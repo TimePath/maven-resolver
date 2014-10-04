@@ -1,5 +1,6 @@
 package com.timepath.maven.model;
 
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -23,25 +24,29 @@ public enum Scope {
     /**
      * Compiled in, definitely required
      */
-    COMPILE {{
-        transitive = true;
-    }},
+    COMPILE(true),
     /**
      * Used during execution
      */
-    RUNTIME {{
-        transitive = true;
-    }};
+    RUNTIME;
 
-    boolean transitive;
+    Scope() {
+        this(false);
+    }
 
-    public static Scope from(@Nullable String scope) {
-        if (scope != null) {
-            Scope s = Scope.valueOf(scope.toUpperCase());
-            if (s != null) return s;
+    Scope(boolean transitive) {
+        this.transitive = transitive;
+    }
+
+    public static Scope from(@NonNls @Nullable String s) {
+        if (s != null) {
+            Scope scope = valueOf(s.toUpperCase());
+            if (scope != null) return scope;
         }
         return COMPILE;
     }
+
+    private final boolean transitive;
 
     public boolean isTransitive() {
         return transitive;
