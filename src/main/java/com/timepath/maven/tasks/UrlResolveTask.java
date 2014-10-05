@@ -39,26 +39,23 @@ public class UrlResolveTask implements Callable<String> {
     /**
      *
      */
-    private static final Logger LOG = Logger
-            .getLogger(UrlResolveTask.class.getName());
+    private static final Logger LOG;
     /**
      *
      */
-    private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle
-            .getBundle(MavenResolver.class.getName());
+    private static final long META_LIFETIME;
     /**
      *
      */
-    private static final Pattern RE_COORD_SPLIT = Pattern.compile("[.:-]");
+    private static final ResourceBundle RESOURCE_BUNDLE;
     /**
      *
      */
-    private static final long META_LIFETIME = TimeUnit.DAYS.toMillis(7);
-
+    private static final Pattern RE_COORD_SPLIT;
     /**
      *
      */
-    private final transient Coordinate key;
+    private final transient String classifier;
     /**
      *
      */
@@ -66,7 +63,17 @@ public class UrlResolveTask implements Callable<String> {
     /**
      *
      */
-    private final transient String classifier;
+    private final transient Coordinate key;
+
+    static {
+        LOG = Logger
+                .getLogger(UrlResolveTask.class.getName());
+        // @checkstyle MagicNumberCheck (1 line)
+        META_LIFETIME = TimeUnit.DAYS.toMillis(7);
+        RESOURCE_BUNDLE = ResourceBundle
+                .getBundle(MavenResolver.class.getName());
+        RE_COORD_SPLIT = Pattern.compile("[.:-]");
+    }
 
     /**
      * Create a new URL resolve task.
@@ -84,19 +91,19 @@ public class UrlResolveTask implements Callable<String> {
         this.classifier = classifier;
     }
 
-    @Nullable
-    @Override
-    public final String call() {
-        @Nullable final String url = this.tryAll();
-        if (url == null) {
-            LOG.log(
-                    Level.WARNING,
-                    RESOURCE_BUNDLE.getString("resolve.url.fail"), this.key
-            );
-        } else {
-            persist(this.key, url);
+    /**
+     * Get the {@link java.util.prefs.Preferences} node for a coordinate.
+     *
+     * @param coordinate The maven coordinate
+     * @return The node
+     */
+    public static Preferences getCached(@NotNull final Coordinate coordinate) {
+        Preferences cachedNode = MavenResolver.PREFERENCES;
+        for (final String nodeName
+                : RE_COORD_SPLIT.split(coordinate.toString())) {
+            cachedNode = cachedNode.node(nodeName);
         }
-        return url;
+        return cachedNode;
     }
 
     /**
@@ -120,19 +127,19 @@ public class UrlResolveTask implements Callable<String> {
         return future;
     }
 
-    /**
-     * Get the {@link java.util.prefs.Preferences} node for a coordinate.
-     *
-     * @param coordinate The maven coordinate
-     * @return The node
-     */
-    public static Preferences getCached(@NotNull final Coordinate coordinate) {
-        Preferences cachedNode = MavenResolver.PREFERENCES;
-        for (final String nodeName
-                : RE_COORD_SPLIT.split(coordinate.toString())) {
-            cachedNode = cachedNode.node(nodeName);
+    @Nullable
+    @Override
+    public final String call() {
+        @Nullable final String url = this.tryAll();
+        if (url == null) {
+            LOG.log(
+                    Level.WARNING,
+                    RESOURCE_BUNDLE.getString("resolve.url.fail"), this.key
+            );
+        } else {
+            persist(this.key, url);
         }
-        return cachedNode;
+        return url;
     }
 
     /**
@@ -157,24 +164,6 @@ public class UrlResolveTask implements Callable<String> {
     }
 
     /**
-     * Try all repositories.
-     *
-     * @return A URL, or null
-     */
-    @Nullable
-    private String tryAll() {
-        String url = null;
-        for (@NonNls @NotNull final String repository
-                : MavenResolver.getRepositories()) {
-            url = this.resolve(repository);
-            if (url != null) {
-                break;
-            }
-        }
-        return url;
-    }
-
-    /**
      * Resolves a coordinate using a repository.
      *
      * @param repository The repository
@@ -189,6 +178,36 @@ public class UrlResolveTask implements Callable<String> {
         return snapshot
                 ? this.resolveSnapshot(base)
                 : this.resolveRelease(base);
+    }
+
+    /**
+     * Resolve a non-snapshot build.
+     *
+     * @param base The base URL
+     * @return The full URL, or null
+     */
+    @SuppressWarnings("PMD.OnlyOneReturn")
+    @Nullable
+    private String resolveRelease(@NonNls final String base) {
+        @NonNls final String test = MessageFormat.format(
+                "{0}{1}-{2}{3}",
+                base,
+                this.key.getArtifact(), this.key.getVersion(), this.classifier
+        );
+        if (!MavenResolver.POM_CACHE.containsKey(this.key)) {
+            // @checkstyle MethodBodyCommentsCheck (1 line)
+            // Test it with the pom
+            final String pom = IOUtils.requestPage(
+                    test + MavenResolver.SUFFIX_POM
+            );
+            if (pom == null) {
+                return null;
+            }
+            // @checkstyle MethodBodyCommentsCheck (1 line)
+            // Cache the pom since we already have it
+            MavenResolver.POM_CACHE.put(this.key, makeFuture(pom));
+        }
+        return test;
     }
 
     /**
@@ -259,32 +278,20 @@ public class UrlResolveTask implements Callable<String> {
     }
 
     /**
-     * Resolve a non-snapshot build.
+     * Try all repositories.
      *
-     * @param base The base URL
-     * @return The full URL, or null
+     * @return A URL, or null
      */
-    @SuppressWarnings("PMD.OnlyOneReturn")
     @Nullable
-    private String resolveRelease(@NonNls final String base) {
-        @NonNls final String test = MessageFormat.format(
-                "{0}{1}-{2}{3}",
-                base,
-                this.key.getArtifact(), this.key.getVersion(), this.classifier
-        );
-        if (!MavenResolver.POM_CACHE.containsKey(this.key)) {
-            // @checkstyle MethodBodyCommentsCheck (1 line)
-            // Test it with the pom
-            final String pom = IOUtils.requestPage(
-                    test + MavenResolver.SUFFIX_POM
-            );
-            if (pom == null) {
-                return null;
+    private String tryAll() {
+        String url = null;
+        for (@NonNls @NotNull final String repository
+                : MavenResolver.getRepositories()) {
+            url = this.resolve(repository);
+            if (url != null) {
+                break;
             }
-            // @checkstyle MethodBodyCommentsCheck (1 line)
-            // Cache the pom since we already have it
-            MavenResolver.POM_CACHE.put(this.key, makeFuture(pom));
         }
-        return test;
+        return url;
     }
 }

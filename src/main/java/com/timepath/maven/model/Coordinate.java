@@ -10,36 +10,30 @@ import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+// @checkstyle JavadocTagsCheck (5 lines)
+
 /**
  * Represents a set of maven coordinates.
  *
- * @checkstyle JavadocTagsCheck (1 line)
  * @author TimePath
  * @version $Id$
  */
 public final class Coordinate {
 
     /**
-     * The logger.
-     */
-    private static final Logger LOG = Logger
-            .getLogger(Coordinate.class.getName());
-    /**
      * The cache.
      */
     @SuppressWarnings("PMD.UseConcurrentHashMap")
-    private static final Map<String, Coordinate> CACHE = new HashMap<>();
+    private static final Map<String, Coordinate> CACHE;
+    /**
+     * The logger.
+     */
+    private static final Logger LOG;
     /**
      * The resource bundle.
      */
-    private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle
-            .getBundle(Coordinate.class.getName());
-    /**
-     * The group.
-     */
-    @NonNls
-    @NotNull
-    private final String group;
+    private static final ResourceBundle RESOURCE_BUNDLE;
+
     /**
      * The artifact.
      */
@@ -47,17 +41,30 @@ public final class Coordinate {
     @NotNull
     private final String artifact;
     /**
-     * The version.
-     */
-    @NonNls
-    @NotNull
-    private final String version;
-    /**
      * The classifier.
      */
     @NonNls
     @Nullable
     private final String classifier;
+    /**
+     * The group.
+     */
+    @NonNls
+    @NotNull
+    private final String group;
+    /**
+     * The version.
+     */
+    @NonNls
+    @NotNull
+    private final String version;
+
+    static {
+        final String name = Coordinate.class.getName();
+        CACHE = new HashMap<>();
+        LOG = Logger.getLogger(name);
+        RESOURCE_BUNDLE = ResourceBundle.getBundle(name);
+    }
 
     /**
      * Creates a new coordinate object.
@@ -124,11 +131,6 @@ public final class Coordinate {
         return this.toString().equals(other.toString());
     }
 
-    @Override
-    public int hashCode() {
-        return this.toString().hashCode();
-    }
-
     /**
      * Artifact name.
      *
@@ -167,6 +169,11 @@ public final class Coordinate {
     @NotNull
     public String getVersion() {
         return this.version;
+    }
+
+    @Override
+    public int hashCode() {
+        return this.toString().hashCode();
     }
 
     @NonNls

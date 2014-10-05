@@ -6,6 +6,8 @@ import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+// @checkstyle JavadocTagsCheck (5 lines)
+
 /**
  * Represents package scope.
  *
@@ -61,15 +63,16 @@ public enum Scope {
      *
      * @param str The scope string
      * @return The appropriate scope, or {@link #COMPILE}
+     * @checkstyle WhitespaceAroundCheck (2 lines)
      */
-    @SuppressWarnings({ "PMD.OnlyOneReturn", "PMD.ConfusingTernary" })
+    @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.ConfusingTernary"})
     @NotNull
     public static Scope from(@NonNls @Nullable final String str) {
         if (str != null) {
             try {
                 return valueOf(str.toUpperCase(Locale.ROOT));
                 // @checkstyle EmptyBlockCheck (1 line)
-            } catch (final IllegalArgumentException empty) {
+            } catch (final IllegalArgumentException ignored) {
             }
         }
         return COMPILE;

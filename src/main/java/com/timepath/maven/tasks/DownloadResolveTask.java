@@ -16,6 +16,7 @@ import org.w3c.dom.Node;
 
 /**
  * Download resolve task.
+ *
  * @author TimePath
  */
 public class DownloadResolveTask implements Callable<Set<Package>> {
@@ -23,20 +24,25 @@ public class DownloadResolveTask implements Callable<Set<Package>> {
     /**
      * The logger.
      */
-    private static final Logger LOG = Logger
-            .getLogger(DownloadResolveTask.class.getName());
+    private static final Logger LOG;
 
-    /**
-     *
-     */
-    private final transient Package pkg;
     /**
      *
      */
     private final transient Node data;
 
     /**
+     *
+     */
+    private final transient Package pkg;
+
+    static {
+        LOG = Logger.getLogger(DownloadResolveTask.class.getName());
+    }
+
+    /**
      * Public ctor.
+     *
      * @param pkg The package
      * @param data A dependency node
      * @checkstyle HiddenFieldCheck (2 lines)

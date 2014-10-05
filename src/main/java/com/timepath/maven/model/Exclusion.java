@@ -7,10 +7,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Node;
 
+// @checkstyle JavadocTagsCheck (5 lines)
+
 /**
  * Represents an exclusion.
  *
- * @checkstyle JavadocTagsCheck (1 line)
  * @author TimePath
  * @version $Id$
  */
@@ -25,9 +26,8 @@ public class Exclusion {
      * Creates a new exclusion object from the given node.
      *
      * @param node The exclusion node
+     * @checkstyle HiddenFieldCheck (2 lines)
      */
-    @SuppressWarnings("ParameterHidesMemberVariable")
-    // @checkstyle HiddenFieldCheck (1 line)
     public Exclusion(final Node node) {
         this.node = node;
     }
@@ -38,7 +38,6 @@ public class Exclusion {
      * @param other The other package
      * @return True if should exclude
      */
-    @SuppressWarnings("BooleanMethodNameMustStartWithQuestion")
     public final boolean matches(@NotNull final Package other) {
         // @checkstyle MethodBodyCommentsCheck (2 lines)
         // @checkstyle TodoCommentCheck (1 line)
