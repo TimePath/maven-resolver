@@ -1,9 +1,9 @@
 // @checkstyle HeaderCheck (1 line)
 package com.timepath.maven;
 
-import com.timepath.IOUtils;
 import com.timepath.Utils;
 import com.timepath.maven.model.Coordinate;
+import com.timepath.maven.tasks.PomResolveTask;
 import com.timepath.maven.tasks.UrlResolveTask;
 import com.timepath.util.Cache;
 import com.timepath.util.concurrent.DaemonThreadFactory;
@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -237,20 +236,7 @@ public final class MavenResolver {
         @Override
         protected Future<String> fill(final Coordinate key) {
             LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom.miss"), key);
-            return THREAD_POOL.submit(
-                    new Callable<String>() {
-                        @Nullable
-                        @Override
-                        public String call() throws FileNotFoundException {
-                            final String resolved = resolve(key, "pom");
-                            // @checkstyle AvoidInlineConditionalsCheck (1 line)
-                            final String pom = (resolved != null) ? IOUtils.requestPage(resolved) : null;
-                            if (pom == null) {
-                                LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), key);
-                            }
-                            return pom;
-                        }
-                    });
+            return THREAD_POOL.submit(new PomResolveTask(key));
         }
     }
 
