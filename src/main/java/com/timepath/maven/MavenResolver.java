@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -59,40 +58,7 @@ public final class MavenResolver {
      *
      * @checkstyle AnonInnerLengthCheck (2 lines)
      */
-    public static final Map<Coordinate, Future<String>> POM_CACHE = new Cache<Coordinate, Future<String>>() {
-        @NotNull
-        @Override
-        protected Future<String> fill(final Coordinate key) {
-            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom.miss"), key);
-            return THREAD_POOL.submit(
-                    new Callable<String>() {
-                        @Nullable
-                        @Override
-                        public String call() throws FileNotFoundException {
-                            final String resolved = resolve(key, "pom");
-                            // @checkstyle AvoidInlineConditionalsCheck (1 line)
-                            final String pom = (resolved != null) ? IOUtils.requestPage(resolved) : null;
-                            if (pom == null) {
-                                LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), key);
-                            }
-                            return pom;
-                        }
-                    });
-        }
-    };
-
-    static {
-        final String name = MavenResolver.class.getName();
-        RESOURCE_BUNDLE = ResourceBundle.getBundle(name);
-        LOG = Logger.getLogger(name);
-        RE_TRAILING_SLASH = Pattern.compile("/$");
-        REPOSITORIES = new LinkedHashSet<>();
-        addRepository("http://oss.jfrog.org/oss-snapshot-local");
-        addRepository("http://repo.maven.apache.org/maven2");
-        addRepository("http://repository.jetbrains.com/all");
-        addRepository("https://dl.dropboxusercontent.com/u/42745598/maven2");
-    }
-
+    public static final Map<Coordinate, Future<String>> POM_CACHE = new PomCache();
     /**
      *
      */
@@ -112,40 +78,6 @@ public final class MavenResolver {
      */
     public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
     /**
-     * Cache of coordinates to base urls.
-     *
-     * @checkstyle AnonInnerLengthCheck (4 lines)
-     */
-    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-    @NonNls
-    public static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
-        @Nullable
-        @Override
-        protected Future<String> expire(@NotNull final Coordinate key, @Nullable final Future<String> value) {
-            Future<String> ret = value;
-            if (value == null) {
-                final String str = PersistentCache.get(key);
-                if (str != null) {
-                    ret = UrlResolveTask.makeFuture(str);
-                }
-            }
-            return ret;
-        }
-
-        @NotNull
-        @Override
-        protected Future<String> fill(@NotNull final Coordinate key) {
-            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
-            @SuppressWarnings("HardcodedFileSeparator") final char sep = '/';
-            final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
-            String classifier = key.getClassifier();
-            final boolean declassified = classifier == null || classifier.isEmpty();
-            // @checkstyle AvoidInlineConditionalsCheck (1 line)
-            classifier = declassified ? "" : ('-' + classifier);
-            return THREAD_POOL.submit(new UrlResolveTask(key, str, classifier));
-        }
-    };
-    /**
      *
      */
     private static final Logger LOG;
@@ -162,6 +94,27 @@ public final class MavenResolver {
      *
      */
     private static final Pattern RE_TRAILING_SLASH;
+
+    /**
+     * Cache of coordinates to base urls.
+     *
+     * @checkstyle AnonInnerLengthCheck (4 lines)
+     */
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+    @NonNls
+    private static final Map<Coordinate, Future<String>> URL_CACHE = new UrlCache();
+
+    static {
+        final String name = MavenResolver.class.getName();
+        RESOURCE_BUNDLE = ResourceBundle.getBundle(name);
+        LOG = Logger.getLogger(name);
+        RE_TRAILING_SLASH = Pattern.compile("/$");
+        REPOSITORIES = new LinkedHashSet<>();
+        addRepository("http://oss.jfrog.org/oss-snapshot-local");
+        addRepository("http://repo.maven.apache.org/maven2");
+        addRepository("http://repository.jetbrains.com/all");
+        addRepository("https://dl.dropboxusercontent.com/u/42745598/maven2");
+    }
 
     /**
      *
@@ -196,9 +149,12 @@ public final class MavenResolver {
      * @return The list of repositories ordered by priority
      */
     public static Iterable<String> getRepositories() {
-        final Set<String> repositories = new LinkedHashSet<>(1 + REPOSITORIES.size());
+        final Collection<String> repositories =
+                new LinkedHashSet<>(1 + REPOSITORIES.size());
         try {
-            repositories.add(new File(getLocal()).toURI().toURL().toExternalForm());
+            repositories.add(
+                    new File(getLocal()).toURI().toURL().toExternalForm()
+            );
         } catch (final MalformedURLException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
@@ -251,7 +207,11 @@ public final class MavenResolver {
         } catch (final InterruptedException | ExecutionException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
-        throw new FileNotFoundException(MessageFormat.format(RESOURCE_BUNDLE.getString("resolve.url.fail"), coordinate));
+        final String msg = MessageFormat.format(
+                RESOURCE_BUNDLE.getString("resolve.url.fail"),
+                coordinate
+        );
+        throw new FileNotFoundException(msg);
     }
 
     /**
@@ -303,4 +263,53 @@ public final class MavenResolver {
         return RE_TRAILING_SLASH.matcher(url).replaceAll("");
     }
 
+    private static class PomCache extends Cache<Coordinate, Future<String>> {
+        @NotNull
+        @Override
+        protected Future<String> fill(final Coordinate key) {
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom.miss"), key);
+            return THREAD_POOL.submit(
+                    new Callable<String>() {
+                        @Nullable
+                        @Override
+                        public String call() throws FileNotFoundException {
+                            final String resolved = resolve(key, "pom");
+                            // @checkstyle AvoidInlineConditionalsCheck (1 line)
+                            final String pom = (resolved != null) ? IOUtils.requestPage(resolved) : null;
+                            if (pom == null) {
+                                LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), key);
+                            }
+                            return pom;
+                        }
+                    });
+        }
+    }
+
+    private static class UrlCache extends Cache<Coordinate, Future<String>> {
+        @Nullable
+        @Override
+        protected Future<String> expire(@NotNull final Coordinate key, @Nullable final Future<String> value) {
+            Future<String> ret = value;
+            if (value == null) {
+                final String str = PersistentCache.get(key);
+                if (str != null) {
+                    ret = UrlResolveTask.makeFuture(str);
+                }
+            }
+            return ret;
+        }
+
+        @NotNull
+        @Override
+        protected Future<String> fill(@NotNull final Coordinate key) {
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
+            @SuppressWarnings("HardcodedFileSeparator") final char sep = '/';
+            final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
+            String classifier = key.getClassifier();
+            final boolean declassified = classifier == null || classifier.isEmpty();
+            // @checkstyle AvoidInlineConditionalsCheck (1 line)
+            classifier = declassified ? "" : ('-' + classifier);
+            return THREAD_POOL.submit(new UrlResolveTask(key, str, classifier));
+        }
+    }
 }
