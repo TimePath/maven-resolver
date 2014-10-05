@@ -4,6 +4,7 @@ package com.timepath.maven.tasks;
 import com.timepath.IOUtils;
 import com.timepath.XMLUtils;
 import com.timepath.maven.MavenResolver;
+import com.timepath.maven.PersistentCache;
 import com.timepath.maven.model.Coordinate;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -13,12 +14,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.RunnableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
-import java.util.regex.Pattern;
 import javax.xml.parsers.ParserConfigurationException;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -43,15 +40,7 @@ public class UrlResolveTask implements Callable<String> {
     /**
      *
      */
-    private static final long META_LIFETIME;
-    /**
-     *
-     */
     private static final ResourceBundle RESOURCE_BUNDLE;
-    /**
-     *
-     */
-    private static final Pattern RE_COORD_SPLIT;
     /**
      *
      */
@@ -66,13 +55,9 @@ public class UrlResolveTask implements Callable<String> {
     private final transient Coordinate key;
 
     static {
-        LOG = Logger
-                .getLogger(UrlResolveTask.class.getName());
-        // @checkstyle MagicNumberCheck (1 line)
-        META_LIFETIME = TimeUnit.DAYS.toMillis(7);
-        RESOURCE_BUNDLE = ResourceBundle
-                .getBundle(MavenResolver.class.getName());
-        RE_COORD_SPLIT = Pattern.compile("[.:-]");
+        LOG = Logger.getLogger(UrlResolveTask.class.getName());
+        RESOURCE_BUNDLE =
+                ResourceBundle.getBundle(MavenResolver.class.getName());
     }
 
     /**
@@ -89,21 +74,6 @@ public class UrlResolveTask implements Callable<String> {
         this.key = key;
         this.fragment = fragment;
         this.classifier = classifier;
-    }
-
-    /**
-     * Get the {@link java.util.prefs.Preferences} node for a coordinate.
-     *
-     * @param coordinate The maven coordinate
-     * @return The node
-     */
-    public static Preferences getCached(@NotNull final Coordinate coordinate) {
-        Preferences cachedNode = MavenResolver.PREFERENCES;
-        for (final String nodeName
-                : RE_COORD_SPLIT.split(coordinate.toString())) {
-            cachedNode = cachedNode.node(nodeName);
-        }
-        return cachedNode;
     }
 
     /**
@@ -137,30 +107,9 @@ public class UrlResolveTask implements Callable<String> {
                     RESOURCE_BUNDLE.getString("resolve.url.fail"), this.key
             );
         } else {
-            persist(this.key, url);
+            PersistentCache.set(this.key, url);
         }
         return url;
-    }
-
-    /**
-     * Save a URL to the persistent cache.
-     *
-     * @param key The key
-     * @param url The URL
-     */
-    private static void persist(@NotNull final Coordinate key,
-                                final String url) {
-        final Preferences cachedNode = getCached(key);
-        cachedNode.put(MavenResolver.CACHE_URL, url);
-        cachedNode.putLong(
-                MavenResolver.CACHE_EXPIRES,
-                System.currentTimeMillis() + META_LIFETIME
-        );
-        try {
-            cachedNode.flush();
-            // @checkstyle EmptyBlockCheck (1 line)
-        } catch (final BackingStoreException ignored) {
-        }
     }
 
     /**

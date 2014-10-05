@@ -52,77 +52,8 @@ public final class MavenResolver {
     /**
      *
      */
-    public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
-    /**
-     *
-     */
-    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
-    /**
-     *
-     */
-    @NonNls
-    public static final String SUFFIX_SNAPSHOT = "-SNAPSHOT";
-    /**
-     *
-     */
     @NonNls
     public static final String MAVEN_REPO_LOCAL = "maven.repo.local";
-    /**
-     *
-     */
-    @NonNls
-    public static final String SUFFIX_POM = ".pom";
-    /**
-     *
-     */
-    @NonNls
-    public static final String CACHE_URL = "url";
-    /**
-     *
-     */
-    @NonNls
-    public static final String CACHE_EXPIRES = "expires";
-
-    /**
-     * Cache of coordinates to base urls.
-     *
-     * @checkstyle AnonInnerLengthCheck (4 lines)
-     */
-    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-    @NonNls
-    public static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
-        @NotNull
-        @Override
-        protected Future<String> fill(@NotNull final Coordinate key) {
-            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
-            @SuppressWarnings("HardcodedFileSeparator") final char sep = '/';
-            final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
-            String classifier = key.getClassifier();
-            final boolean declassified = classifier == null || classifier.isEmpty();
-            // @checkstyle AvoidInlineConditionalsCheck (1 line)
-            classifier = declassified ? "" : ('-' + classifier);
-            return THREAD_POOL.submit(new UrlResolveTask(key, str, classifier));
-        }
-
-        // @checkstyle ReturnCountCheck (1 line)
-        @Nullable
-        @Override
-        protected Future<String> expire(@NotNull final Coordinate key, @Nullable final Future<String> value) {
-            final Preferences cached = UrlResolveTask.getCached(key);
-            final boolean expired = System.currentTimeMillis() >= cached.getLong(CACHE_EXPIRES, 0);
-            if (expired) {
-                return null;
-            }
-            if (value == null) {
-                final String url = cached.get(CACHE_URL, null);
-                if (url != null) {
-                    return UrlResolveTask.makeFuture(url);
-                }
-            }
-            return value;
-        }
-    };
-
     /**
      * Cache of coordinates to pom documents.
      *
@@ -161,10 +92,63 @@ public final class MavenResolver {
         addRepository("http://repository.jetbrains.com/all");
         addRepository("https://dl.dropboxusercontent.com/u/42745598/maven2");
     }
+
     /**
      *
      */
-    private static final ResourceBundle RESOURCE_BUNDLE;
+    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
+    /**
+     *
+     */
+    @NonNls
+    public static final String SUFFIX_POM = ".pom";
+    /**
+     *
+     */
+    @NonNls
+    public static final String SUFFIX_SNAPSHOT = "-SNAPSHOT";
+    /**
+     *
+     */
+    public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
+    /**
+     * Cache of coordinates to base urls.
+     *
+     * @checkstyle AnonInnerLengthCheck (4 lines)
+     */
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+    @NonNls
+    public static final Map<Coordinate, Future<String>> URL_CACHE = new Cache<Coordinate, Future<String>>() {
+        @Nullable
+        @Override
+        protected Future<String> expire(@NotNull final Coordinate key, @Nullable final Future<String> value) {
+            Future<String> ret = value;
+            if (value == null) {
+                final String str = PersistentCache.get(key);
+                if (str != null) {
+                    ret = UrlResolveTask.makeFuture(str);
+                }
+            }
+            return ret;
+        }
+
+        @NotNull
+        @Override
+        protected Future<String> fill(@NotNull final Coordinate key) {
+            LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
+            @SuppressWarnings("HardcodedFileSeparator") final char sep = '/';
+            final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
+            String classifier = key.getClassifier();
+            final boolean declassified = classifier == null || classifier.isEmpty();
+            // @checkstyle AvoidInlineConditionalsCheck (1 line)
+            classifier = declassified ? "" : ('-' + classifier);
+            return THREAD_POOL.submit(new UrlResolveTask(key, str, classifier));
+        }
+    };
+    /**
+     *
+     */
+    private static final Logger LOG;
     /**
      *
      */
@@ -173,7 +157,7 @@ public final class MavenResolver {
     /**
      *
      */
-    private static final Logger LOG;
+    private static final ResourceBundle RESOURCE_BUNDLE;
     /**
      *
      */
@@ -186,16 +170,6 @@ public final class MavenResolver {
     }
 
     /**
-     * Drops all cached lookups.
-     *
-     * @throws BackingStoreException If something went wrong
-     */
-    public static void invalidateCaches() throws BackingStoreException {
-        PREFERENCES.removeNode();
-        PREFERENCES.flush();
-    }
-
-    /**
      * Adds a repository.
      *
      * @param url The URL
@@ -205,22 +179,41 @@ public final class MavenResolver {
     }
 
     /**
-     * Resolve a pom to an InputStream.
+     * Get the local repository location.
      *
-     * @param coordinate The maven coordinate
-     * @return An InputStream for the given coordinates
+     * @return The location
      */
-    @Nullable
-    public static InputStream resolvePomStream(final Coordinate coordinate) {
+    public static String getLocal() {
+        final String local = PREFERENCES.get(MAVEN_REPO_LOCAL, new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath());
+        // @checkstyle MethodBodyCommentsCheck (1 line)
+//        local = System.getProperty(key, new File(System.getProperty("user.home"), ".m2/repository").getPath());
+        return sanitize(local);
+    }
+
+    /**
+     * Iterate over repositories. To allow for changes at runtime, the local repository is not cached
+     *
+     * @return The list of repositories ordered by priority
+     */
+    public static Iterable<String> getRepositories() {
+        final Set<String> repositories = new LinkedHashSet<>(1 + REPOSITORIES.size());
         try {
-            final byte[] bytes = resolvePom(coordinate);
-            if (bytes.length != 0) {
-                return new BufferedInputStream(new ByteArrayInputStream(bytes));
-            }
-        } catch (final ExecutionException | InterruptedException ex) {
+            repositories.add(new File(getLocal()).toURI().toURL().toExternalForm());
+        } catch (final MalformedURLException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
-        return null;
+        repositories.addAll(REPOSITORIES);
+        return Collections.unmodifiableCollection(repositories);
+    }
+
+    /**
+     * Drops all cached lookups.
+     *
+     * @throws BackingStoreException If something went wrong
+     */
+    public static void invalidateCaches() throws BackingStoreException {
+        PREFERENCES.removeNode();
+        PREFERENCES.flush();
     }
 
     /**
@@ -262,44 +255,22 @@ public final class MavenResolver {
     }
 
     /**
-     * Iterate over repositories. To allow for changes at runtime, the local repository is not cached
+     * Resolve a pom to an InputStream.
      *
-     * @return The list of repositories ordered by priority
+     * @param coordinate The maven coordinate
+     * @return An InputStream for the given coordinates
      */
-    public static Iterable<String> getRepositories() {
-        final Set<String> repositories = new LinkedHashSet<>(1 + REPOSITORIES.size());
+    @Nullable
+    public static InputStream resolvePomStream(final Coordinate coordinate) {
         try {
-            repositories.add(new File(getLocal()).toURI().toURL().toExternalForm());
-        } catch (final MalformedURLException ex) {
+            final byte[] bytes = resolvePom(coordinate);
+            if (bytes.length != 0) {
+                return new BufferedInputStream(new ByteArrayInputStream(bytes));
+            }
+        } catch (final ExecutionException | InterruptedException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
-        repositories.addAll(REPOSITORIES);
-        return Collections.unmodifiableCollection(repositories);
-    }
-
-    /**
-     * Get the local repository location.
-     *
-     * @return The location
-     */
-    public static String getLocal() {
-        final String local = PREFERENCES.get(MAVEN_REPO_LOCAL, new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath());
-        // @checkstyle MethodBodyCommentsCheck (1 line)
-//        local = System.getProperty(key, new File(System.getProperty("user.home"), ".m2/repository").getPath());
-        return sanitize(local);
-    }
-
-    /**
-     * Sanitizes a repository URL.
-     * <ul>
-     * <li>Drops trailing slash</li>
-     * </ul>
-     *
-     * @param url The URL
-     * @return The sanitized URL
-     */
-    private static String sanitize(@NotNull final CharSequence url) {
-        return RE_TRAILING_SLASH.matcher(url).replaceAll("");
+        return null;
     }
 
     /**
@@ -317,6 +288,19 @@ public final class MavenResolver {
         final String pom = POM_CACHE.get(coordinate).get();
         // @checkstyle AvoidInlineConditionalsCheck (1 line)
         return (pom != null) ? pom.getBytes(StandardCharsets.UTF_8) : new byte[0];
+    }
+
+    /**
+     * Sanitizes a repository URL.
+     * <ul>
+     * <li>Drops trailing slash</li>
+     * </ul>
+     *
+     * @param url The URL
+     * @return The sanitized URL
+     */
+    private static String sanitize(@NotNull final CharSequence url) {
+        return RE_TRAILING_SLASH.matcher(url).replaceAll("");
     }
 
 }
