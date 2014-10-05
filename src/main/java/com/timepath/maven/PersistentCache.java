@@ -22,6 +22,10 @@ public final class PersistentCache {
     /**
      *
      */
+    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
+    /**
+     *
+     */
     @NonNls
     private static final String CACHE_EXPIRES = "expires";
     /**
@@ -64,6 +68,16 @@ public final class PersistentCache {
     }
 
     /**
+     * Drops all cached lookups.
+     *
+     * @throws java.util.prefs.BackingStoreException If something went wrong
+     */
+    public static void drop() throws BackingStoreException {
+        PREFERENCES.removeNode();
+        PREFERENCES.flush();
+    }
+
+    /**
      * Save a URL to the persistent cache.
      *
      * @param key The key
@@ -89,7 +103,7 @@ public final class PersistentCache {
      * @return The node
      */
     private static Preferences getNode(@NotNull final Coordinate coordinate) {
-        Preferences cachedNode = MavenResolver.PREFERENCES;
+        Preferences cachedNode = PREFERENCES;
         for (final String nodeName
                 : RE_COORD_SPLIT.split(coordinate.toString())) {
             cachedNode = cachedNode.node(nodeName);

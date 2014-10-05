@@ -27,8 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -49,20 +47,11 @@ import org.jetbrains.annotations.Nullable;
 public final class MavenResolver {
 
     /**
-     *
-     */
-    @NonNls
-    public static final String MAVEN_REPO_LOCAL = "maven.repo.local";
-    /**
      * Cache of coordinates to pom documents.
      *
      * @checkstyle AnonInnerLengthCheck (2 lines)
      */
     public static final Map<Coordinate, Future<String>> POM_CACHE = new PomCache();
-    /**
-     *
-     */
-    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
     /**
      *
      */
@@ -137,7 +126,7 @@ public final class MavenResolver {
      * @return The location
      */
     public static String getLocal() {
-        final String local = PREFERENCES.get(MAVEN_REPO_LOCAL, new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath());
+        final String local = new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath();
         // @checkstyle MethodBodyCommentsCheck (1 line)
 //        local = System.getProperty(key, new File(System.getProperty("user.home"), ".m2/repository").getPath());
         return sanitize(local);
@@ -160,16 +149,6 @@ public final class MavenResolver {
         }
         repositories.addAll(REPOSITORIES);
         return Collections.unmodifiableCollection(repositories);
-    }
-
-    /**
-     * Drops all cached lookups.
-     *
-     * @throws BackingStoreException If something went wrong
-     */
-    public static void invalidateCaches() throws BackingStoreException {
-        PREFERENCES.removeNode();
-        PREFERENCES.flush();
     }
 
     /**
