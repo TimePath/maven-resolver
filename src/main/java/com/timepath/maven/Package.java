@@ -1,299 +1,476 @@
+// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven;
 
 import com.timepath.FileUtils;
 import com.timepath.IOUtils;
 import com.timepath.XMLUtils;
-import com.timepath.maven.model.Exclusion;
+import com.timepath.maven.model.Coordinate;
 import com.timepath.maven.model.Scope;
+import com.timepath.maven.tasks.DownloadResolveTask;
 import com.timepath.util.Cache;
-import org.jetbrains.annotations.NonNls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.dom.DOMSource;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLConnection;
 import java.text.MessageFormat;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Callable;
+import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.dom.DOMSource;
+import org.jetbrains.annotations.NonNls;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
+
+// @checkstyle LineLengthCheck (500 lines)
+// @checkstyle DesignForExtensionCheck (500 lines)
+// @checkstyle BracketsStructureCheck (500 lines)
+
+// @checkstyle JavadocTagsCheck (5 lines)
 
 /**
- * Handles maven packages
+ * Handles maven packages.
  *
  * @author TimePath
+ * @version $Id$
  */
+@SuppressWarnings("PMD")
 public class Package {
 
+    /**
+     * The logger.
+     */
     private static final Logger LOG = Logger.getLogger(Package.class.getName());
+    /**
+     * The resource bundle.
+     */
     private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(Package.class.getName());
+    /**
+     * A map of currently executing tasks.
+     */
     private static final Map<Coordinate, Future<Set<Package>>> FUTURES = new HashMap<>();
     /**
-     * Maven coordinates
+     * Maven coordinates.
      */
-    public final Coordinate coordinate;
+    private final Coordinate coordinate;
     /**
-     * Base URL in maven repo
+     * Base URL in maven repo.
      */
     @NonNls
-    final String baseURL;
+    private final String baseurl;
     /**
-     * Artifact checksums
+     * Artifact checksums.
      */
     @NotNull
     private final Map<String, String> checksums = new Cache<String, String>() {
         /**
-         *
-         * @param key the algorithm
-         * @return the checksum
+         * Fills in a missing value by making a request, or using disk cache.
+         * @param key The algorithm
+         * @return The checksum
          */
         @Nullable
         @Override
-        protected String fill(@NotNull String key) {
-            @NotNull File existing = UpdateChecker.getFile(Package.this);
-            @NotNull File checksum = new File(existing.getParent(), existing.getName() + '.' + key);
-            if (checksum.exists()) { // Avoid network
+        protected String fill(@NotNull final String key) {
+            @NotNull final File existing = UpdateChecker.getFile(Package.this);
+            @NotNull final File checksum = new File(existing.getParent(), existing.getName() + '.' + key);
+            if (checksum.exists()) {
+                // @checkstyle MethodBodyCommentsCheck (1 line)
+                // Avoid network
                 return IOUtils.requestPage(checksum.toURI().toString());
             }
             return IOUtils.requestPage(UpdateChecker.getChecksumURL(Package.this, key));
         }
     };
     /**
-     * Download status
+     * Download status.
      */
-    public long progress, size;
+    private long progress;
+    /**
+     * Download status.
+     */
+    private long size;
+    /**
+     *
+     */
     private Set<Package> downloads;
+    /**
+     *
+     */
     @Nullable
     private String name;
+    /**
+     *
+     */
     private boolean self;
+    /**
+     *
+     */
     private Node pom;
 
-    public Package(String baseURL, Coordinate coordinate) {
-        this.baseURL = baseURL;
+    /**
+     * Instantiates a new Package.
+     *
+     * @param baseurl The base URL
+     * @param coordinate The coordinate object
+     * @checkstyle HiddenFieldCheck (2 lines)
+     */
+    public Package(final String baseurl, final Coordinate coordinate) {
+        this.baseurl = baseurl;
         this.coordinate = coordinate;
     }
 
     /**
-     * Instantiate a Package instance from an XML node
+     * Instantiate a Package instance from an XML node.
      *
-     * @param root    the root node
-     * @param context the parent package
-     * @throws java.lang.IllegalArgumentException if root is null
+     * @param root The root node
+     * @param context The parent package
+     * @return A new instance
+     * @checkstyle ExecutableStatementCountCheck (2 lines)
      */
     @Nullable
-    public static Package parse(@Nullable Node root, @Nullable Package context) {
-        if (root == null) throw new IllegalArgumentException("The root node cannot be null");
-
-        String pprint = XMLUtils.pprint(new DOMSource(root), 2);
+    public static Package parse(@NotNull final Node root, @Nullable final Package context) {
+        final String pprint = XMLUtils.pprint(new DOMSource(root), 2);
         LOG.log(Level.FINER, RESOURCE_BUNDLE.getString("parse"), pprint);
-
         @NonNls @Nullable String gid = inherit(root, "groupId");
-        @NonNls @Nullable String aid = XMLUtils.get(root, "artifactId");
+        @NonNls @Nullable final String aid = XMLUtils.get(root, "artifactId");
         @NonNls @Nullable String ver = inherit(root, "version");
-        if (gid == null)
-            throw new IllegalArgumentException("groupId cannot be null");
-        if (aid == null)
-            throw new IllegalArgumentException("artifactId cannot be null");
-        if (ver == null) { // TODO: dependencyManagement/dependencies/dependency/version
+        if (gid == null) {
+            throw new IllegalArgumentException("group cannot be null");
+        }
+        if (aid == null) {
+            throw new IllegalArgumentException("artifact cannot be null");
+        }
+        if (ver == null) {
+            // @checkstyle MethodBodyCommentsCheck (2 lines)
+            // @checkstyle TodoCommentCheck (1 line)
+            // TODO: dependencyManagement/dependencies/dependency/version
             throw new UnsupportedOperationException(MessageFormat.format("Null version: {0}:{1}", gid, aid));
         }
         if (context != null) {
-            gid = context.expand(gid.replace("${project.groupId}", context.coordinate.groupId));
-            ver = context.expand(ver.replace("${project.version}", context.coordinate.version));
+            gid = context.expand(gid.replace("${project.group}", context.coordinate.getGroup()));
+            ver = context.expand(ver.replace("${project.version}", context.coordinate.getVersion()));
         }
-        Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
-        String base;
+        final Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
+        final String base;
         try {
             base = MavenResolver.resolve(coordinate);
             LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), new Object[]{coordinate, base});
-        } catch (FileNotFoundException e) {
-            LOG.log(Level.SEVERE, null, e);
+        } catch (final FileNotFoundException ex) {
+            LOG.log(Level.SEVERE, null, ex);
             return null;
         }
-        Package p = new Package(base, coordinate);
-        p.name = XMLUtils.get(root, "name");
-        return p;
+        final Package pkg = new Package(base, coordinate);
+        pkg.name = XMLUtils.get(root, "name");
+        return pkg;
     }
 
+    /**
+     * A `self` package has updates downloaded into a different directory.
+     *
+     * @return Whether the package requires special update treatment
+     */
+    public boolean isSelf() {
+        return this.self
+                || ("launcher".equals(this.coordinate.getArtifact())
+                && "com.timepath".equals(this.coordinate.getGroup()));
+    }
+
+    /**
+     * A `self` package has updates downloaded into a different directory.
+     *
+     * @param self Requires special treatment
+     * @checkstyle HiddenFieldCheck (2 lines)
+     */
+    public void setSelf(final boolean self) {
+        this.self = self;
+    }
+
+    /**
+     * Get the checksum of a package.
+     *
+     * @param algorithm The algorithm
+     * @return The checksum of this artifact with the given algorithm
+     */
     @Nullable
-    private static String inherit(Node root, @NonNls @NotNull String name) {
-        @Nullable String ret = XMLUtils.get(root, name);
-        if (ret == null) { // Must be defined by a parent pom
+    public String getChecksum(final String algorithm) {
+        return this.checksums.get(algorithm);
+    }
+
+    /**
+     * Get the name of this package. If a custom name is available, it will be used. Falls back to formatted coordinates.
+     *
+     * @return The package name
+     */
+    @Nullable
+    public String getName() {
+        if (this.name != null) {
+            return this.name;
+        }
+        return this.coordinate.toString();
+    }
+
+    /**
+     * Associate a package with a connection to its jar. Might be able to store extra checksum data if present.
+     *
+     * @param connection The connection
+     */
+    public void associate(@NotNull final URLConnection connection) {
+        @NonNls final String prefix = "x-checksum-";
+        for (@NonNls @NotNull final Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
+            // @checkstyle MethodBodyCommentsCheck (1 line)
+            // Null keys! Using String.valueOf
+            @NonNls String key = String.valueOf(field.getKey());
+            key = key.toLowerCase(Locale.ROOT);
+            if (key.startsWith(prefix)) {
+                @NotNull final String algorithm = key.substring(prefix.length());
+                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), new Object[]{algorithm, this});
+                this.checksums.put(algorithm, field.getValue().get(0));
+            }
+        }
+    }
+
+    /**
+     * Get a set of all downloads.
+     *
+     * @return All transitive packages, flattened. Includes self
+     */
+    public Set<Package> getDownloads() {
+        // @checkstyle MethodBodyCommentsCheck (2 lines)
+        // @checkstyle TodoCommentCheck (1 line)
+        // TODO: eager loading.
+        if (this.downloads == null) {
+            this.downloads = Collections.unmodifiableSet(this.initDownloads());
+        }
+        return this.downloads;
+    }
+
+    @Override
+    public int hashCode() {
+        if (this.baseurl != null) {
+            return this.baseurl.hashCode();
+        }
+        LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.url"), this);
+        return 0;
+    }
+
+    @Override
+    public boolean equals(@Nullable final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (this.getClass() != obj.getClass())) {
+            return false;
+        }
+        return this.baseurl.equals(((Package) obj).baseurl);
+    }
+
+    // @checkstyle ReturnCountCheck (2 lines)
+    @Override
+    public String toString() {
+        if (this.name != null) {
+            return this.name;
+        } else if (this.baseurl != null) {
+            return FileUtils.name(this.baseurl);
+        } else {
+            return this.coordinate.toString();
+        }
+    }
+
+    /**
+     * Get the maven coordinates.
+     *
+     * @return The coordinates
+     */
+    public Coordinate getCoordinate() {
+        return this.coordinate;
+    }
+
+    /**
+     * Get the base URL of the package in a maven repository.
+     *
+     * @return The base URL
+     */
+    public String getBaseurl() {
+        return this.baseurl;
+    }
+
+    /**
+     * Get the download progress.
+     *
+     * @return The progress
+     */
+    public long getProgress() {
+        return this.progress;
+    }
+
+    /**
+     * Set the download progress.
+     *
+     * @param progress The progress
+     * @checkstyle HiddenFieldCheck (2 lines)
+     */
+    public void setProgress(final long progress) {
+        this.progress = progress;
+    }
+
+    /**
+     * Get the download size.
+     *
+     * @return The size
+     */
+    public long getSize() {
+        return this.size;
+    }
+
+    /**
+     * Set the download size.
+     *
+     * @param size The size
+     * @checkstyle HiddenFieldCheck (2 lines)
+     */
+    public void setSize(final long size) {
+        this.size = size;
+    }
+
+    /**
+     * Inherit a property from the parent.
+     *
+     * @param root The root node
+     * @param name The property to inherit
+     * @return The final value
+     * @checkstyle ReturnCountCheck (3 lines)
+     */
+    @Nullable
+    private static String inherit(final Node root, @NonNls @NotNull final String name) {
+        @Nullable final String ret = XMLUtils.get(root, name);
+        if (ret == null) {
+            // @checkstyle MethodBodyCommentsCheck (1 line)
+            // Must be defined by a parent pom
             @Nullable Node parent = null;
             try {
                 parent = XMLUtils.last(XMLUtils.getElements(root, "parent"));
-            } catch (NullPointerException ignored) {
+                // @checkstyle EmptyBlockCheck (1 line)
+            } catch (final NullPointerException ignored) {
             }
-            if (parent == null) return null; // TODO: transitive parent poms
+            if (parent == null) {
+                // @checkstyle MethodBodyCommentsCheck (2 lines)
+                // @checkstyle TodoCommentCheck (1 line)
+                // TODO: transitive parent poms
+                return null;
+            }
             return XMLUtils.get(parent, name);
         }
         return ret;
     }
 
     /**
-     * Expands properties
-     * TODO: recursion
+     * Expands properties.
+     *
+     * @param raw The raw text
+     * @return The expanded property
      */
     @NotNull
-    private String expand(@NotNull String s) {
-        @NotNull Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(s);
+    private String expand(@NotNull final String raw) {
+        // @checkstyle MethodBodyCommentsCheck (2 lines)
+        // @checkstyle TodoCommentCheck (1 line)
+        // TODO: recursion
+        String str = raw;
+        @NotNull final Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(str);
         while (matcher.find()) {
-            @NonNls String property = matcher.group(1);
-            @NotNull List<Node> properties = XMLUtils.getElements(pom, "properties");
-            Node propertyNodes = properties.get(0);
-            for (@NotNull Node node : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
-                String value = node.getFirstChild().getNodeValue();
-                @NonNls String target = "${" + property + '}';
-                s = s.replace(target, value);
+            @NonNls final String property = matcher.group(1);
+            @NotNull final List<Node> properties = XMLUtils.getElements(this.pom, "properties");
+            final Node propertyNodes = properties.get(0);
+            for (@NotNull final Node node : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
+                final String value = node.getFirstChild().getNodeValue();
+                @NonNls final String target = "${" + property + '}';
+                str = str.replace(target, value);
             }
         }
-        return s;
-    }
-
-    public boolean isSelf() {
-        return self
-                || ("launcher".equals(coordinate.artifactId)
-                && "com.timepath".equals(coordinate.groupId));
-    }
-
-    public void setSelf(boolean self) {
-        this.self = self;
-    }
-
-    @Nullable
-    public String getChecksum(String algorithm) {
-        return checksums.get(algorithm);
-    }
-
-    @Nullable
-    public String getName() {
-        if (name != null) return name;
-        // Fallback
-        return coordinate.toString();
+        return str;
     }
 
     /**
-     * Associate a package with a connection to its jar. Might be able to store extra checksum data if present.
+     * Instantiates all dependencies.
      *
-     * @param connection
-     */
-    public void associate(@NotNull URLConnection connection) {
-        @NonNls String prefix = "x-checksum-";
-        for (@NonNls @NotNull Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
-            @NonNls String key = String.valueOf(field.getKey()); // Null keys!
-            key = key.toLowerCase();
-            if (key.startsWith(prefix)) {
-                @NotNull String algorithm = key.substring(prefix.length());
-                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), new Object[]{algorithm, this});
-                checksums.put(algorithm, field.getValue().get(0));
-            }
-        }
-    }
-
-    /**
-     * TODO: eager loading
-     *
-     * @return all transitive packages, flattened. Includes self.
-     */
-    public Set<Package> getDownloads() {
-        return (downloads == null) ? (downloads = Collections.unmodifiableSet(initDownloads())) : downloads;
-    }
-
-    @Override
-    public int hashCode() {
-        if (baseURL != null) return baseURL.hashCode();
-        LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.url"), this);
-        return 0;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        if (this == obj) return true;
-        if ((obj == null) || (getClass() != obj.getClass())) return false;
-        return baseURL.equals(((Package) obj).baseURL);
-    }
-
-    @Nullable
-    @Override
-    public String toString() {
-        if (name != null) return name;
-        else return ((baseURL != null) ? FileUtils.name(baseURL) : coordinate.toString());
-    }
-
-    /**
-     * Fetches all transitive packages. Includes self.
+     * @return All transitive packages. Includes self
      */
     @NotNull
     private Set<Package> initDownloads() {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("downloads.init"), this);
-        Set<Package> set = new HashSet<>();
+        final Set<Package> set = new HashSet<>();
         set.add(this);
-        try (InputStream is = MavenResolver.resolvePomStream(coordinate)) {
+        try (InputStream is = MavenResolver.resolvePomStream(this.coordinate)) {
             if (is == null) {
-                LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), coordinate);
+                LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), this.coordinate);
                 return set;
             }
-            pom = XMLUtils.rootNode(is, "project");
-            Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
-            for (final Node depNode : XMLUtils.getElements(pom, "dependencies/dependency")) {
-                if (Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) continue;
-                if (!Scope.from(XMLUtils.get(depNode, "scope")).isTransitive()) continue;
-                final Package dep = parse(depNode, this); // TODO: thread this potentially long call
-                synchronized (FUTURES) {
-                    Future<Set<Package>> future = FUTURES.get(dep.coordinate);
-                    if (future == null) {
-                        FUTURES.put(dep.coordinate, future = MavenResolver.THREAD_POOL.submit(new Callable<Set<Package>>() {
-
-                            @NotNull
-                            @Override
-                            public Set<Package> call() throws Exception {
-                                @NotNull Set<Package> depDownloads = new HashSet<>();
-                                try {
-                                    transitives:
-                                    for (@NotNull Package depDownload : dep.getDownloads()) {
-                                        for (Node exNode : XMLUtils.getElements(depNode, "exclusions/exclusion")) {
-                                            @NotNull Exclusion exclusion = new Exclusion(exNode);
-                                            if (exclusion.matches(depDownload)) continue transitives;
-                                        }
-                                        depDownloads.add(depDownload);
-                                    }
-                                } catch (@NotNull IllegalArgumentException | UnsupportedOperationException e) {
-                                    LOG.log(Level.SEVERE, null, e);
-                                }
-                                return depDownloads;
-                            }
-                        }));
-                    }
-                    locals.put(dep.coordinate, future);
-                }
-            }
-            for (Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
+            this.pom = XMLUtils.rootNode(is, "project");
+            final Map<Coordinate, Future<Set<Package>>> locals = this.parseDeps();
+            for (final Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
                 try {
-                    Set<Package> result = entry.getValue().get();
+                    final Set<Package> result = entry.getValue().get();
                     if (result != null) {
                         set.addAll(result);
                     } else {
                         LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.single"), entry.getKey());
                     }
-                } catch (InterruptedException | ExecutionException e) {
-                    LOG.log(Level.SEVERE, null, e);
+                } catch (final InterruptedException | ExecutionException ex) {
+                    LOG.log(Level.SEVERE, null, ex);
                 }
             }
-        } catch (IOException | ParserConfigurationException | SAXException | IllegalArgumentException e) {
-            LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.all"), e);
+        } catch (final IOException | ParserConfigurationException | SAXException | IllegalArgumentException ex) {
+            LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.all"), ex);
         }
         return set;
     }
+
+    /**
+     * Parse all dependencies.
+     *
+     * @return All transitive packages. Includes self
+     */
+    @NotNull
+    private Map<Coordinate, Future<Set<Package>>> parseDeps() {
+        final Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
+        for (final Node depNode : XMLUtils.getElements(this.pom, "dependencies/dependency")) {
+            if (Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) {
+                continue;
+            }
+            if (!Scope.from(XMLUtils.get(depNode, "scope")).isTransitive()) {
+                continue;
+            }
+            // @checkstyle MethodBodyCommentsCheck (2 lines)
+            // @checkstyle TodoCommentCheck (1 line)
+            // TODO: thread this potentially long call
+            final Package dep = parse(depNode, this);
+            if (dep == null) {
+                continue;
+            }
+            synchronized (FUTURES) {
+                Future<Set<Package>> future = FUTURES.get(dep.coordinate);
+                if (future == null) {
+                    // @checkstyle InnerAssignmentCheck (1 line)
+                    FUTURES.put(dep.coordinate, future = MavenResolver.THREAD_POOL.submit(new DownloadResolveTask(dep, depNode)));
+                }
+                locals.put(dep.coordinate, future);
+            }
+        }
+        return locals;
+    }
+
 }

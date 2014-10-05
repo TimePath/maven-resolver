@@ -1,16 +1,32 @@
+// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven;
 
+import com.timepath.maven.model.Coordinate;
+import java.io.FileNotFoundException;
+import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.FileNotFoundException;
-
-import static org.junit.Assert.assertTrue;
-
+/**
+ * Test resolver functionality.
+ *
+ * @checkstyle JavadocTagsCheck (1 line)
+ * @author TimePath
+ * @version $Id$
+ */
 public class MavenResolverTest {
 
+    /**
+     * Test resolving coordinates to a URL.
+     *
+     * @throws FileNotFoundException If resolving fails
+     */
     @Test
-    public void testResolve() throws FileNotFoundException {
-        String resolved = MavenResolver.resolve(Coordinate.from("com.timepath", "launcher", "1.0-SNAPSHOT", null));
-        assertTrue("Failed to resolve", resolved.contains("/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-"));
+    public final void testResolve() throws FileNotFoundException {
+        final String resolved = MavenResolver.resolve(
+                Coordinate
+                        .from("com.timepath", "launcher", "1.0-SNAPSHOT", null)
+        );
+        final String str = "/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-";
+        Assert.assertTrue("Failed to resolve", resolved.contains(str));
     }
 }
