@@ -22,10 +22,6 @@ public final class PersistentCache {
     /**
      *
      */
-    public static final Preferences PREFERENCES = Preferences.userNodeForPackage(MavenResolver.class);
-    /**
-     *
-     */
     @NonNls
     private static final String CACHE_EXPIRES = "expires";
     /**
@@ -40,12 +36,27 @@ public final class PersistentCache {
     /**
      *
      */
+    private static final Preferences PREFERENCES =
+            Preferences.userNodeForPackage(MavenResolver.class);
+    /**
+     *
+     */
     private static final Pattern RE_COORD_SPLIT = Pattern.compile("[.:-]");
 
     /**
      * Private ctor.
      */
     private PersistentCache() {
+    }
+
+    /**
+     * Drops all cached lookups.
+     *
+     * @throws java.util.prefs.BackingStoreException If something went wrong
+     */
+    public static void drop() throws BackingStoreException {
+        PREFERENCES.removeNode();
+        PREFERENCES.flush();
     }
 
     /**
@@ -65,16 +76,6 @@ public final class PersistentCache {
             ret = cached.get(CACHE_URL, null);
         }
         return ret;
-    }
-
-    /**
-     * Drops all cached lookups.
-     *
-     * @throws java.util.prefs.BackingStoreException If something went wrong
-     */
-    public static void drop() throws BackingStoreException {
-        PREFERENCES.removeNode();
-        PREFERENCES.flush();
     }
 
     /**

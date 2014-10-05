@@ -34,11 +34,6 @@ public final class UpdateChecker {
     /**
      *
      */
-    @NonNls
-    public static final String ALGORITHM = "sha1";
-    /**
-     *
-     */
     private static final Logger LOG = Logger
             .getLogger(UpdateChecker.class.getName());
 
@@ -80,9 +75,9 @@ public final class UpdateChecker {
                 return false;
             }
             @NonNls @Nullable final String expected =
-                    getChecksum(pkg, ALGORITHM);
+                    getChecksum(pkg, Constants.ALGORITHM);
             @NonNls @NotNull final String actual =
-                    FileUtils.checksum(existing, ALGORITHM);
+                    FileUtils.checksum(existing, Constants.ALGORITHM);
             if (!actual.equals(expected)) {
                 LOG.log(
                         Level.INFO,

@@ -55,16 +55,6 @@ public final class MavenResolver {
     /**
      *
      */
-    @NonNls
-    public static final String SUFFIX_POM = ".pom";
-    /**
-     *
-     */
-    @NonNls
-    public static final String SUFFIX_SNAPSHOT = "-SNAPSHOT";
-    /**
-     *
-     */
     public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
     /**
      *

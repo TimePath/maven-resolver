@@ -3,6 +3,7 @@ package com.timepath.maven.tasks;
 
 import com.timepath.IOUtils;
 import com.timepath.XMLUtils;
+import com.timepath.maven.Constants;
 import com.timepath.maven.MavenResolver;
 import com.timepath.maven.PersistentCache;
 import com.timepath.maven.model.Coordinate;
@@ -122,7 +123,7 @@ public class UrlResolveTask implements Callable<String> {
     private String resolve(@NonNls final String repository) {
         final String base = repository + this.fragment;
         final boolean snapshot = this.key.getVersion()
-                .endsWith(MavenResolver.SUFFIX_SNAPSHOT);
+                .endsWith(Constants.SUFFIX_SNAPSHOT);
         // @checkstyle AvoidInlineConditionalsCheck (2 lines)
         return snapshot
                 ? this.resolveSnapshot(base)
@@ -147,7 +148,7 @@ public class UrlResolveTask implements Callable<String> {
             // @checkstyle MethodBodyCommentsCheck (1 line)
             // Test it with the pom
             final String pom = IOUtils.requestPage(
-                    test + MavenResolver.SUFFIX_POM
+                    test + Constants.SUFFIX_POM
             );
             if (pom == null) {
                 return null;
@@ -193,11 +194,11 @@ public class UrlResolveTask implements Callable<String> {
                     XMLUtils.get(snapshot, "buildNumber");
             final String version = this.key.getVersion();
             @NonNls final String versionNumber = version.substring(
-                    0, version.lastIndexOf(MavenResolver.SUFFIX_SNAPSHOT)
+                    0, version.lastIndexOf(Constants.SUFFIX_SNAPSHOT)
             );
             // @checkstyle AvoidInlineConditionalsCheck (2 lines)
             @NotNull final String versionSuffix = (buildNumber == null)
-                    ? MavenResolver.SUFFIX_SNAPSHOT
+                    ? Constants.SUFFIX_SNAPSHOT
                     : "";
             return MessageFormat.format(
                     "{0}{1}-{2}{3}{4}{5}", base,
