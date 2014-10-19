@@ -55,7 +55,12 @@ public final class PersistentCache {
      * @throws java.util.prefs.BackingStoreException If something went wrong
      */
     public static void drop() throws BackingStoreException {
-        PREFERENCES.removeNode();
+        for (final String key : PREFERENCES.keys()) {
+            PREFERENCES.remove(key);
+        }
+        for (final String child : PREFERENCES.childrenNames()) {
+            PREFERENCES.node(child).removeNode();
+        }
         PREFERENCES.flush();
     }
 
