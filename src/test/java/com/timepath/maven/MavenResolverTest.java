@@ -3,7 +3,9 @@ package com.timepath.maven;
 
 import com.timepath.maven.model.Coordinate;
 import java.io.FileNotFoundException;
+import java.util.prefs.BackingStoreException;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -14,6 +16,15 @@ import org.junit.Test;
  * @version $Id$
  */
 public class MavenResolverTest {
+
+    /**
+     * Drop the caches to avoid interference between tests.
+     * @throws BackingStoreException If fails.
+     */
+    @BeforeClass
+    public static final void init() throws BackingStoreException {
+        PersistentCache.drop();
+    }
 
     /**
      * Test resolving coordinates to a URL.
