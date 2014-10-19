@@ -18,7 +18,6 @@ import java.text.MessageFormat;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -50,11 +49,15 @@ public final class MavenResolver {
      *
      * @checkstyle AnonInnerLengthCheck (2 lines)
      */
-    public static final Map<Coordinate, Future<String>> POM_CACHE = new PomCache();
+    public static final Cache<Coordinate, Future<String>> POM_CACHE = new PomCache();
     /**
      *
      */
     public static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(new DaemonThreadFactory());
+    /**
+     *
+     */
+    public static final byte[] RESPONSE_EMPTY = new byte[0];
     /**
      *
      */
@@ -80,7 +83,7 @@ public final class MavenResolver {
      */
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     @NonNls
-    private static final Map<Coordinate, Future<String>> URL_CACHE = new UrlCache();
+    private static final Cache<Coordinate, Future<String>> URL_CACHE = new UrlCache();
 
     static {
         final String name = MavenResolver.class.getName();
@@ -213,9 +216,14 @@ public final class MavenResolver {
     @NotNull
     private static byte[] resolvePom(final Coordinate coordinate) throws ExecutionException, InterruptedException {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom"), coordinate);
-        final String pom = POM_CACHE.get(coordinate).get();
-        // @checkstyle AvoidInlineConditionalsCheck (1 line)
-        return (pom != null) ? pom.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        final Future<String> pomFuture = POM_CACHE.get(coordinate);
+        if (pomFuture != null) {
+            final String pom = pomFuture.get();
+            if (pom != null) {
+                return pom.getBytes(StandardCharsets.UTF_8);
+            }
+        }
+        return RESPONSE_EMPTY;
     }
 
     /**

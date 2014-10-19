@@ -144,7 +144,7 @@ public class UrlResolveTask implements Callable<String> {
                 base,
                 this.key.getArtifact(), this.key.getVersion(), this.classifier
         );
-        if (!MavenResolver.POM_CACHE.containsKey(this.key)) {
+        if (!MavenResolver.POM_CACHE.getBackingMap().containsKey(this.key)) {
             // @checkstyle MethodBodyCommentsCheck (1 line)
             // Test it with the pom
             final String pom = IOUtils.requestPage(
