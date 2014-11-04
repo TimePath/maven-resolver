@@ -17,6 +17,7 @@ import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -162,7 +163,7 @@ public class Package {
             throw new UnsupportedOperationException(MessageFormat.format("Null version: {0}:{1}", gid, aid));
         }
         if (context != null) {
-            gid = context.expand(gid.replace("${project.group}", context.coordinate.getGroup()));
+            gid = context.expand(gid.replace("${project.groupId}", context.coordinate.getGroup()));
             ver = context.expand(ver.replace("${project.version}", context.coordinate.getVersion()));
         }
         final Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
@@ -420,7 +421,7 @@ public class Package {
                 return set;
             }
             this.pom = XMLUtils.rootNode(is, "project");
-            final Map<Coordinate, Future<Set<Package>>> locals = this.parseDeps();
+            final Map<Coordinate, Future<Set<Package>>> locals = this.parseDepsTrans();
             for (final Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
                 try {
                     final Set<Package> result = entry.getValue().get();
@@ -442,23 +443,23 @@ public class Package {
     /**
      * Parse all dependencies.
      *
-     * @return All transitive packages. Includes self
+     * @return All local packages. Includes self
      */
     @NotNull
     private Map<Coordinate, Future<Set<Package>>> parseDeps() {
         final Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
         for (final Node depNode : XMLUtils.getElements(this.pom, "dependencies/dependency")) {
-            if (Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) {
-                continue;
-            }
-            if (!Scope.from(XMLUtils.get(depNode, "scope")).isTransitive()) {
-                continue;
-            }
             // @checkstyle MethodBodyCommentsCheck (2 lines)
             // @checkstyle TodoCommentCheck (1 line)
             // TODO: thread this potentially long call
             final Package dep = parse(depNode, this);
             if (dep == null) {
+                continue;
+            }
+            if (Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) {
+                continue;
+            }
+            if (!Scope.from(XMLUtils.get(depNode, "scope")).isTransitive()) {
                 continue;
             }
             synchronized (FUTURES) {
@@ -471,6 +472,26 @@ public class Package {
             }
         }
         return locals;
+    }
+
+    /**
+     * Parse all transitive dependencies recursively.
+     *
+     * @return All transitive packages. Includes self
+     */
+    @NotNull
+    private Map<Coordinate, Future<Set<Package>>> parseDepsTrans() {
+        final Map<Coordinate, Future<Set<Package>>> trans = this.parseDeps();
+        for (final Future<Set<Package>> entry : new LinkedList<>(trans.values())) {
+            try {
+                for (final Package aPackage : entry.get()) {
+                    trans.putAll(aPackage.parseDepsTrans());
+                }
+            } catch (final InterruptedException | ExecutionException ignored) {
+                LOG.severe("INTERRUPT");
+            }
+        }
+        return trans;
     }
 
 }
