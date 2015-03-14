@@ -23,11 +23,13 @@ public final class Coordinate {
     /**
      * The cache.
      */
+    @NotNull
     @SuppressWarnings("PMD.UseConcurrentHashMap")
     private static final Map<String, Coordinate> CACHE;
     /**
      * The logger.
      */
+    @NotNull
     private static final Logger LOG;
     /**
      * The resource bundle.
@@ -60,7 +62,7 @@ public final class Coordinate {
     private final String version;
 
     static {
-        final String name = Coordinate.class.getName();
+        @NotNull final String name = Coordinate.class.getName();
         CACHE = new HashMap<>();
         LOG = Logger.getLogger(name);
         RESOURCE_BUNDLE = ResourceBundle.getBundle(name);
@@ -96,14 +98,15 @@ public final class Coordinate {
      * @return A reference
      * @checkstyle ParameterNumberCheck (3 lines)
      */
+    @Nullable
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public static Coordinate from(@NotNull final String group,
                                   @NotNull final String artifact,
                                   @NotNull final String version,
                                   @Nullable final String classifier) {
-        final String str = format(group, artifact, version, classifier);
+        @NotNull final String str = format(group, artifact, version, classifier);
         synchronized (Coordinate.class) {
-            Coordinate coordinate = CACHE.get(str);
+            @Nullable Coordinate coordinate = CACHE.get(str);
             if (coordinate == null) {
                 LOG.log(
                         Level.FINE, RESOURCE_BUNDLE.getString("coordinate.new"),
@@ -127,7 +130,7 @@ public final class Coordinate {
         if ((obj == null) || (this.getClass() != obj.getClass())) {
             return false;
         }
-        final Coordinate other = (Coordinate) obj;
+        @NotNull final Coordinate other = (Coordinate) obj;
         return this.toString().equals(other.toString());
     }
 

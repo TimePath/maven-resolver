@@ -49,9 +49,9 @@ public class PomResolveTask implements Callable<String> {
     @Nullable
     @Override
     public final String call() throws FileNotFoundException {
-        final String resolved = MavenResolver.resolve(this.key, "pom");
+        @Nullable final String resolved = MavenResolver.resolve(this.key, "pom");
         // @checkstyle AvoidInlineConditionalsCheck (1 line)
-        String pom = null;
+        @Nullable String pom = null;
         if (resolved != null) {
             pom = IOUtils.requestPage(resolved);
         }

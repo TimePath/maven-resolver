@@ -61,6 +61,7 @@ public final class MavenResolver {
     /**
      *
      */
+    @NotNull
     private static final Logger LOG;
     /**
      *
@@ -74,6 +75,7 @@ public final class MavenResolver {
     /**
      *
      */
+    @NotNull
     private static final Pattern RE_TRAILING_SLASH;
 
     /**
@@ -86,7 +88,7 @@ public final class MavenResolver {
     private static final Cache<Coordinate, Future<String>> URL_CACHE = new UrlCache();
 
     static {
-        final String name = MavenResolver.class.getName();
+        @NotNull final String name = MavenResolver.class.getName();
         RESOURCE_BUNDLE = ResourceBundle.getBundle(name);
         LOG = Logger.getLogger(name);
         RE_TRAILING_SLASH = Pattern.compile("/$");
@@ -117,8 +119,9 @@ public final class MavenResolver {
      *
      * @return The location
      */
+    @NotNull
     public static String getLocal() {
-        final String local = new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath();
+        @NotNull final String local = new File(Utils.currentFile(MavenResolver.class).getParentFile(), "bin").getPath();
         // @checkstyle MethodBodyCommentsCheck (1 line)
 //        local = System.getProperty(key, new File(System.getProperty("user.home"), ".m2/repository").getPath());
         return sanitize(local);
@@ -129,14 +132,15 @@ public final class MavenResolver {
      *
      * @return The list of repositories ordered by priority
      */
+    @NotNull
     public static Iterable<String> getRepositories() {
-        final Collection<String> repositories =
+        @NotNull final Collection<String> repositories =
                 new LinkedHashSet<>(1 + REPOSITORIES.size());
         try {
             repositories.add(
                     new File(getLocal()).toURI().toURL().toExternalForm()
             );
-        } catch (final MalformedURLException ex) {
+        } catch (@NotNull final MalformedURLException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
         repositories.addAll(REPOSITORIES);
@@ -168,17 +172,17 @@ public final class MavenResolver {
     public static String resolve(final Coordinate coordinate) throws FileNotFoundException {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url"), coordinate);
         try {
-            final Future<String> future = URL_CACHE.get(coordinate);
+            @Nullable final Future<String> future = URL_CACHE.get(coordinate);
             if (future != null) {
                 final String base = future.get();
                 if (base != null) {
                     return base;
                 }
             }
-        } catch (final InterruptedException | ExecutionException ex) {
+        } catch (@NotNull final InterruptedException | ExecutionException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
-        final String msg = MessageFormat.format(
+        @NotNull final String msg = MessageFormat.format(
                 RESOURCE_BUNDLE.getString("resolve.url.fail"),
                 coordinate
         );
@@ -194,11 +198,11 @@ public final class MavenResolver {
     @Nullable
     public static InputStream resolvePomStream(final Coordinate coordinate) {
         try {
-            final byte[] bytes = resolvePom(coordinate);
+            @NotNull final byte[] bytes = resolvePom(coordinate);
             if (bytes.length != 0) {
                 return new BufferedInputStream(new ByteArrayInputStream(bytes));
             }
-        } catch (final ExecutionException | InterruptedException ex) {
+        } catch (@NotNull final ExecutionException | InterruptedException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
         return null;
@@ -216,7 +220,7 @@ public final class MavenResolver {
     @NotNull
     private static byte[] resolvePom(final Coordinate coordinate) throws ExecutionException, InterruptedException {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom"), coordinate);
-        final Future<String> pomFuture = POM_CACHE.get(coordinate);
+        @Nullable final Future<String> pomFuture = POM_CACHE.get(coordinate);
         if (pomFuture != null) {
             final String pom = pomFuture.get();
             if (pom != null) {
@@ -235,6 +239,7 @@ public final class MavenResolver {
      * @param url The URL
      * @return The sanitized URL
      */
+    @NotNull
     private static String sanitize(@NotNull final CharSequence url) {
         return RE_TRAILING_SLASH.matcher(url).replaceAll("");
     }
@@ -252,9 +257,9 @@ public final class MavenResolver {
         @Nullable
         @Override
         protected Future<String> expire(@NotNull final Coordinate key, @Nullable final Future<String> value) {
-            Future<String> ret = value;
+            @Nullable Future<String> ret = value;
             if (value == null) {
-                final String str = PersistentCache.get(key);
+                @Nullable final String str = PersistentCache.get(key);
                 if (str != null) {
                     ret = UrlResolveTask.makeFuture(str);
                 }
@@ -267,8 +272,8 @@ public final class MavenResolver {
         protected Future<String> fill(@NotNull final Coordinate key) {
             LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url.miss"), key);
             @SuppressWarnings("HardcodedFileSeparator") final char sep = '/';
-            final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
-            String classifier = key.getClassifier();
+            @NotNull final String str = sep + key.getGroup().replace('.', sep) + sep + key.getArtifact() + sep + key.getVersion() + sep;
+            @Nullable String classifier = key.getClassifier();
             final boolean declassified = classifier == null || classifier.isEmpty();
             // @checkstyle AvoidInlineConditionalsCheck (1 line)
             classifier = declassified ? "" : ('-' + classifier);

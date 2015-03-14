@@ -86,7 +86,7 @@ public final class UpdateChecker {
                 );
                 return false;
             }
-        } catch (final IOException | NoSuchAlgorithmException ex) {
+        } catch (@NotNull final IOException | NoSuchAlgorithmException ex) {
             LOG.log(Level.SEVERE, null, ex);
             return false;
         }

@@ -72,7 +72,7 @@ public enum Scope {
             try {
                 return valueOf(str.toUpperCase(Locale.ROOT));
                 // @checkstyle EmptyBlockCheck (1 line)
-            } catch (final IllegalArgumentException ignored) {
+            } catch (@NotNull final IllegalArgumentException ignored) {
             }
         }
         return COMPILE;

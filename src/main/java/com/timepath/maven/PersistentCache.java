@@ -55,10 +55,10 @@ public final class PersistentCache {
      * @throws java.util.prefs.BackingStoreException If something went wrong
      */
     public static void drop() throws BackingStoreException {
-        for (final String key : PREFERENCES.keys()) {
+        for (@NotNull final String key : PREFERENCES.keys()) {
             PREFERENCES.remove(key);
         }
-        for (final String child : PREFERENCES.childrenNames()) {
+        for (@NotNull final String child : PREFERENCES.childrenNames()) {
             PREFERENCES.node(child).removeNode();
         }
         PREFERENCES.flush();
@@ -76,7 +76,7 @@ public final class PersistentCache {
         final Preferences cached = getNode(key);
         final boolean expired =
                 System.currentTimeMillis() >= cached.getLong(CACHE_EXPIRES, 0);
-        String ret = null;
+        @Nullable String ret = null;
         if (!expired) {
             ret = cached.get(CACHE_URL, null);
         }
@@ -98,7 +98,7 @@ public final class PersistentCache {
         try {
             cachedNode.flush();
             // @checkstyle EmptyBlockCheck (1 line)
-        } catch (final BackingStoreException ignored) {
+        } catch (@NotNull final BackingStoreException ignored) {
         }
     }
 
@@ -110,7 +110,7 @@ public final class PersistentCache {
      */
     private static Preferences getNode(@NotNull final Coordinate coordinate) {
         Preferences cachedNode = PREFERENCES;
-        for (final String nodeName
+        for (@NotNull final String nodeName
                 : RE_COORD_SPLIT.split(coordinate.toString())) {
             cachedNode = cachedNode.node(nodeName);
         }

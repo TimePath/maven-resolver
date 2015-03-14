@@ -37,6 +37,7 @@ public class UrlResolveTask implements Callable<String> {
     /**
      *
      */
+    @NotNull
     private static final Logger LOG;
     /**
      *
@@ -121,7 +122,7 @@ public class UrlResolveTask implements Callable<String> {
      */
     @Nullable
     private String resolve(@NonNls final String repository) {
-        final String base = repository + this.fragment;
+        @NotNull final String base = repository + this.fragment;
         final boolean snapshot = this.key.getVersion()
                 .endsWith(Constants.SUFFIX_SNAPSHOT);
         // @checkstyle AvoidInlineConditionalsCheck (2 lines)
@@ -139,7 +140,7 @@ public class UrlResolveTask implements Callable<String> {
     @SuppressWarnings("PMD.OnlyOneReturn")
     @Nullable
     private String resolveRelease(@NonNls final String base) {
-        @NonNls final String test = MessageFormat.format(
+        @NotNull @NonNls final String test = MessageFormat.format(
                 "{0}{1}-{2}{3}",
                 base,
                 this.key.getArtifact(), this.key.getVersion(), this.classifier
@@ -147,7 +148,7 @@ public class UrlResolveTask implements Callable<String> {
         if (!MavenResolver.POM_CACHE.getBackingMap().containsKey(this.key)) {
             // @checkstyle MethodBodyCommentsCheck (1 line)
             // Test it with the pom
-            final String pom = IOUtils.requestPage(
+            @Nullable final String pom = IOUtils.requestPage(
                     test + Constants.SUFFIX_POM
             );
             if (pom == null) {
@@ -170,7 +171,7 @@ public class UrlResolveTask implements Callable<String> {
      */
     @SuppressWarnings({"PMD.OnlyOneReturn", "PMD.NPathComplexity"})
     @Nullable
-    private String resolveSnapshot(@NonNls final String base) {
+    private String resolveSnapshot(@NotNull @NonNls final String base) {
         try {
             if (base.startsWith("file:")) {
                 // @checkstyle MethodBodyCommentsCheck (2 lines)
@@ -178,7 +179,7 @@ public class UrlResolveTask implements Callable<String> {
                 // TODO: Handle metadata when using REPO_LOCAL
                 return null;
             }
-            final Node metadata = XMLUtils.rootNode(
+            @NotNull final Node metadata = XMLUtils.rootNode(
                     // @checkstyle StringLiteralsConcatenationCheck (1 line)
                     IOUtils.openStream(base + "maven-metadata.xml"),
                     "metadata"
@@ -192,8 +193,8 @@ public class UrlResolveTask implements Callable<String> {
                     XMLUtils.get(snapshot, "timestamp");
             @Nullable final String buildNumber =
                     XMLUtils.get(snapshot, "buildNumber");
-            final String version = this.key.getVersion();
-            @NonNls final String versionNumber = version.substring(
+            @NotNull final String version = this.key.getVersion();
+            @NotNull @NonNls final String versionNumber = version.substring(
                     0, version.lastIndexOf(Constants.SUFFIX_SNAPSHOT)
             );
             // @checkstyle AvoidInlineConditionalsCheck (2 lines)
@@ -209,16 +210,16 @@ public class UrlResolveTask implements Callable<String> {
                     (buildNumber == null) ? "" : ('-' + buildNumber),
                     this.classifier
             );
-        } catch (final FileNotFoundException ignored) {
+        } catch (@NotNull final FileNotFoundException ignored) {
             LOG.log(
                     Level.WARNING,
                     RESOURCE_BUNDLE.getString("resolve.pom.fail.version"),
                     new Object[]{this.key, base}
             );
-        } catch (final IOException
+        } catch (@NotNull final IOException
                 | ParserConfigurationException
                 | SAXException ex) {
-            final String msg = MessageFormat.format(
+            @NotNull final String msg = MessageFormat.format(
                     RESOURCE_BUNDLE.getString("resolve.pom.fail"),
                     this.key
             );
@@ -234,7 +235,7 @@ public class UrlResolveTask implements Callable<String> {
      */
     @Nullable
     private String tryAll() {
-        String url = null;
+        @Nullable String url = null;
         for (@NonNls @NotNull final String repository
                 : MavenResolver.getRepositories()) {
             url = this.resolve(repository);

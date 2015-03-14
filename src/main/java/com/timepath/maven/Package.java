@@ -166,16 +166,16 @@ public class Package {
             gid = context.expand(gid.replace("${project.groupId}", context.coordinate.getGroup()));
             ver = context.expand(ver.replace("${project.version}", context.coordinate.getVersion()));
         }
-        final Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
-        final String base;
+        @Nullable final Coordinate coordinate = Coordinate.from(gid, aid, ver, null);
+        @NotNull final String base;
         try {
             base = MavenResolver.resolve(coordinate);
             LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), new Object[]{coordinate, base});
-        } catch (final FileNotFoundException ex) {
+        } catch (@NotNull final FileNotFoundException ex) {
             LOG.log(Level.SEVERE, null, ex);
             return null;
         }
-        final Package pkg = new Package(base, coordinate);
+        @Nullable final Package pkg = new Package(base, coordinate);
         pkg.name = XMLUtils.get(root, "name");
         return pkg;
     }
@@ -231,11 +231,11 @@ public class Package {
      * @param connection The connection
      */
     public void associate(@NotNull final URLConnection connection) {
-        @NonNls final String prefix = "x-checksum-";
+        @NotNull @NonNls final String prefix = "x-checksum-";
         for (@NonNls @NotNull final Entry<String, List<String>> field : connection.getHeaderFields().entrySet()) {
             // @checkstyle MethodBodyCommentsCheck (1 line)
             // Null keys! Using String.valueOf
-            @NonNls String key = String.valueOf(field.getKey());
+            @NotNull @NonNls String key = String.valueOf(field.getKey());
             key = key.toLowerCase(Locale.ROOT);
             if (key.startsWith(prefix)) {
                 @NotNull final String algorithm = key.substring(prefix.length());
@@ -281,6 +281,7 @@ public class Package {
     }
 
     // @checkstyle ReturnCountCheck (2 lines)
+    @Nullable
     @Override
     public String toString() {
         if (this.name != null) {
@@ -357,7 +358,7 @@ public class Package {
      * @checkstyle ReturnCountCheck (3 lines)
      */
     @Nullable
-    private static String inherit(final Node root, @NonNls @NotNull final String name) {
+    private static String inherit(@NotNull final Node root, @NonNls @NotNull final String name) {
         @Nullable final String ret = XMLUtils.get(root, name);
         if (ret == null) {
             // @checkstyle MethodBodyCommentsCheck (1 line)
@@ -366,7 +367,7 @@ public class Package {
             try {
                 parent = XMLUtils.last(XMLUtils.getElements(root, "parent"));
                 // @checkstyle EmptyBlockCheck (1 line)
-            } catch (final NullPointerException ignored) {
+            } catch (@NotNull final NullPointerException ignored) {
             }
             if (parent == null) {
                 // @checkstyle MethodBodyCommentsCheck (2 lines)
@@ -390,15 +391,15 @@ public class Package {
         // @checkstyle MethodBodyCommentsCheck (2 lines)
         // @checkstyle TodoCommentCheck (1 line)
         // TODO: recursion
-        String str = raw;
+        @NotNull String str = raw;
         @NotNull final Matcher matcher = Pattern.compile("\\$\\{(.*?)}").matcher(str);
         while (matcher.find()) {
             @NonNls final String property = matcher.group(1);
             @NotNull final List<Node> properties = XMLUtils.getElements(this.pom, "properties");
-            final Node propertyNodes = properties.get(0);
+            @NotNull final Node propertyNodes = properties.get(0);
             for (@NotNull final Node node : XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
                 final String value = node.getFirstChild().getNodeValue();
-                @NonNls final String target = "${" + property + '}';
+                @NotNull @NonNls final String target = "${" + property + '}';
                 str = str.replace(target, value);
             }
         }
@@ -413,16 +414,16 @@ public class Package {
     @NotNull
     private Set<Package> initDownloads() {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("downloads.init"), this);
-        final Set<Package> set = new HashSet<>();
+        @NotNull final Set<Package> set = new HashSet<>();
         set.add(this);
-        try (InputStream is = MavenResolver.resolvePomStream(this.coordinate)) {
+        try (@Nullable InputStream is = MavenResolver.resolvePomStream(this.coordinate)) {
             if (is == null) {
                 LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), this.coordinate);
                 return set;
             }
             this.pom = XMLUtils.rootNode(is, "project");
-            final Map<Coordinate, Future<Set<Package>>> locals = this.parseDepsTrans();
-            for (final Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
+            @NotNull final Map<Coordinate, Future<Set<Package>>> locals = this.parseDepsTrans();
+            for (@NotNull final Entry<Coordinate, Future<Set<Package>>> entry : locals.entrySet()) {
                 try {
                     final Set<Package> result = entry.getValue().get();
                     if (result != null) {
@@ -430,11 +431,11 @@ public class Package {
                     } else {
                         LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.single"), entry.getKey());
                     }
-                } catch (final InterruptedException | ExecutionException ex) {
+                } catch (@NotNull final InterruptedException | ExecutionException ex) {
                     LOG.log(Level.SEVERE, null, ex);
                 }
             }
-        } catch (final IOException | ParserConfigurationException | SAXException | IllegalArgumentException ex) {
+        } catch (@NotNull final IOException | ParserConfigurationException | SAXException | IllegalArgumentException ex) {
             LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("downloads.fail.all"), ex);
         }
         return set;
@@ -447,12 +448,12 @@ public class Package {
      */
     @NotNull
     private Map<Coordinate, Future<Set<Package>>> parseDeps() {
-        final Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
-        for (final Node depNode : XMLUtils.getElements(this.pom, "dependencies/dependency")) {
+        @NotNull final Map<Coordinate, Future<Set<Package>>> locals = new HashMap<>();
+        for (@NotNull final Node depNode : XMLUtils.getElements(this.pom, "dependencies/dependency")) {
             // @checkstyle MethodBodyCommentsCheck (2 lines)
             // @checkstyle TodoCommentCheck (1 line)
             // TODO: thread this potentially long call
-            final Package dep = parse(depNode, this);
+            @Nullable final Package dep = parse(depNode, this);
             if (dep == null) {
                 continue;
             }
@@ -481,13 +482,13 @@ public class Package {
      */
     @NotNull
     private Map<Coordinate, Future<Set<Package>>> parseDepsTrans() {
-        final Map<Coordinate, Future<Set<Package>>> trans = this.parseDeps();
-        for (final Future<Set<Package>> entry : new LinkedList<>(trans.values())) {
+        @NotNull final Map<Coordinate, Future<Set<Package>>> trans = this.parseDeps();
+        for (@NotNull final Future<Set<Package>> entry : new LinkedList<>(trans.values())) {
             try {
-                for (final Package aPackage : entry.get()) {
+                for (@NotNull final Package aPackage : entry.get()) {
                     trans.putAll(aPackage.parseDepsTrans());
                 }
-            } catch (final InterruptedException | ExecutionException ignored) {
+            } catch (@NotNull final InterruptedException | ExecutionException ignored) {
                 LOG.severe("INTERRUPT");
             }
         }

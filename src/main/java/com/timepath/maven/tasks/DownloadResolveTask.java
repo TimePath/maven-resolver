@@ -24,6 +24,7 @@ public class DownloadResolveTask implements Callable<Set<Package>> {
     /**
      * The logger.
      */
+    @NotNull
     private static final Logger LOG;
 
     /**
@@ -70,7 +71,7 @@ public class DownloadResolveTask implements Callable<Set<Package>> {
                 }
                 depDownloads.add(depDownload);
             }
-        } catch (final IllegalArgumentException
+        } catch (@NotNull final IllegalArgumentException
                 | UnsupportedOperationException ex) {
             LOG.log(Level.SEVERE, null, ex);
         }
