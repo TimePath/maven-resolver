@@ -1,6 +1,6 @@
 // @checkstyle HeaderCheck (1 line)
 /**
- * Maven modelling classes.
+ * Maven utility classes.
  * @author TimePath
  */
-package com.timepath.maven.model;
+package com.timepath.maven

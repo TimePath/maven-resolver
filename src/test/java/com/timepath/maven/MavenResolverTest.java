@@ -22,8 +22,8 @@ public class MavenResolverTest {
      * @throws BackingStoreException If fails.
      */
     @BeforeClass
-    public static final void init() throws BackingStoreException {
-        PersistentCache.drop();
+    public static void init() throws BackingStoreException {
+        PersistentCache.INSTANCE$.drop();
     }
 
     /**
@@ -33,9 +33,8 @@ public class MavenResolverTest {
      */
     @Test
     public final void testResolve() throws FileNotFoundException {
-        final String resolved = MavenResolver.resolve(
-                Coordinate
-                        .from("com.timepath", "launcher", "1.0-SNAPSHOT", null)
+        final String resolved = MavenResolver.INSTANCE$.resolve(
+                Coordinate.OBJECT$.from("com.timepath", "launcher", "1.0-SNAPSHOT", null)
         );
         final String str = "/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-";
         Assert.assertTrue("Failed to resolve", resolved.contains(str));

@@ -1,6 +1,6 @@
 // @checkstyle HeaderCheck (1 line)
 /**
- * Maven utility classes.
+ * Maven task classes.
  * @author TimePath
  */
-package com.timepath.maven;
+package com.timepath.maven.tasks
