@@ -135,9 +135,7 @@ public class Package
      * @param algorithm The algorithm
      * @return The checksum of this artifact with the given algorithm
      */
-    public fun getChecksum(algorithm: String): String? {
-        return this.checksums.get(algorithm)
-    }
+    public fun getChecksum(algorithm: String): String? = this.checksums[algorithm]
 
     /**
      * Associate a package with a connection to its jar. Might be able to store extra checksum data if present.
@@ -296,15 +294,15 @@ public class Package
                 continue
             }
             synchronized (FUTURES) {
-                var future: Future<Set<Package>>? = FUTURES.get(dep!!.coordinate)
+                var future: Future<Set<Package>>? = FUTURES[dep.coordinate]
                 if (future == null) {
                     // @checkstyle InnerAssignmentCheck (1 line)
-                    FUTURES.put(dep!!.coordinate, MavenResolver.THREAD_POOL.submit<Set<Package>>(DownloadResolveTask(dep, depNode)).let {
+                    FUTURES.put(dep.coordinate, MavenResolver.THREAD_POOL.submit<Set<Package>>(DownloadResolveTask(dep, depNode)).let {
                         future = it
                         it
                     })
                 }
-                locals.put(dep!!.coordinate, future)
+                locals.put(dep.coordinate, future)
             }
         }
         return locals

@@ -53,7 +53,7 @@ private class UrlCache : Cache<Coordinate, Future<String>>() {
     override fun expire(key: Coordinate, value: Future<String>?): Future<String>? {
         var ret = value
         if (value == null) {
-            val str = PersistentCache.get(key)
+            val str = PersistentCache[key]
             if (str != null) {
                 ret = UrlResolveTask.makeFuture(str)
             }
@@ -185,7 +185,7 @@ public object MavenResolver {
     public fun resolve(coordinate: Coordinate): String {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url"), coordinate)
         try {
-            val future = URL_CACHE.get(coordinate)
+            val future = URL_CACHE[coordinate]
             if (future != null) {
                 val base = future.get()
                 if (base != null) {
@@ -235,7 +235,7 @@ public object MavenResolver {
     throws(javaClass<ExecutionException>(), javaClass<InterruptedException>())
     private fun resolvePom(coordinate: Coordinate): ByteArray {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom"), coordinate)
-        val pomFuture = POM_CACHE.get(coordinate)
+        val pomFuture = POM_CACHE[coordinate]
         if (pomFuture != null) {
             val pom = pomFuture.get()
             if (pom != null) {

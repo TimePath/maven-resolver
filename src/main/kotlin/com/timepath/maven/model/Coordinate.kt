@@ -99,7 +99,7 @@ private(
         public fun from(group: String, artifact: String, version: String, classifier: String?): Coordinate {
             val str = format(group, artifact, version, classifier)
             synchronized (javaClass<Coordinate>()) {
-                var coordinate: Coordinate? = CACHE.get(str)
+                var coordinate: Coordinate? = CACHE[str]
                 if (coordinate == null) {
                     LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("coordinate.new"), str)
                     coordinate = Coordinate(group, artifact, version, classifier)
