@@ -94,9 +94,13 @@ public class Package
      */
     private var downloads: Set<Package>? = null
     /**
-     *
+     * Get the name of this package.
+     * If a custom name is available, it will be used.
+     * Falls back to formatted coordinates.
      */
-    private var name: String? = null
+    var name: String? = null
+        get() = $name ?: coordinate.toString()
+        private set
     /**
      *
      */
@@ -133,18 +137,6 @@ public class Package
      */
     public fun getChecksum(algorithm: String): String? {
         return this.checksums.get(algorithm)
-    }
-
-    /**
-     * Get the name of this package. If a custom name is available, it will be used. Falls back to formatted coordinates.
-     *
-     * @return The package name
-     */
-    public fun getName(): String? {
-        if (this.name != null) {
-            return this.name
-        }
-        return this.coordinate.toString()
     }
 
     /**
