@@ -213,18 +213,20 @@ public class Package
      * @param raw The raw text
      * @return The expanded property
      */
-    private fun expand(raw: String): String = raw.replaceAll("\\$\\{([^}]+)}") {(it: MatchResult): String ->
+    private fun expand(raw: String): String = raw.replaceAll("\\$\\{([^}]+)}") { expand(it) }
+
+    private fun expand(it: MatchResult): String {
         val property = it.group(1)
         val propertyNodes = XMLUtils.getElements(this.pom, "properties").first()
         XMLUtils.get(propertyNodes, Node.ELEMENT_NODE).forEach {
             val s = it.getFirstChild().getNodeValue()
             if (s == property) {
-                return@replaceAll s
+                return s
             }
         }
         // TODO: recursion
         LOG.warning("Cannot find pom property `$property`")
-        "\${$property}"
+        return "\${$property}"
     }
 
     /**
