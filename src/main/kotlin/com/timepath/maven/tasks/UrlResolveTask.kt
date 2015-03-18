@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.tasks
 
 import com.timepath.IOUtils
@@ -20,8 +19,7 @@ import javax.xml.parsers.ParserConfigurationException
 import org.w3c.dom.Node
 import org.xml.sax.SAXException
 import java.net.URI
-
-// @checkstyle JavadocTagsCheck (5 lines)
+import org.jetbrains.annotations.NonNls
 
 /**
  * Task for resolving addresses of artifacts.
@@ -114,13 +112,10 @@ public class UrlResolveTask
     private fun resolveSnapshot(NonNls base: String): String? {
         try {
             if (base.startsWith("file:")) {
-                // @checkstyle MethodBodyCommentsCheck (2 lines)
-                // @checkstyle TodoCommentCheck (1 line)
                 // TODO: Handle metadata when using REPO_LOCAL
                 return null
             }
             val metadata = XMLUtils.rootNode(IOUtils.openStream("${base}maven-metadata.xml"), "metadata")
-            // @checkstyle LineLengthCheck (1 line)
             val snapshot = XMLUtils.last<Node>(XMLUtils.getElements(metadata, "versioning/snapshot"))
             if (snapshot == null) {
                 return null

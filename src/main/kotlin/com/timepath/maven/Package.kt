@@ -351,26 +351,15 @@ public class Package
         public fun parse(root: Node, context: Package?): Package? {
             val pprint = XMLUtils.pprint(DOMSource(root), 2)
             LOG.log(Level.FINER, RESOURCE_BUNDLE.getString("parse"), pprint)
-            [NonNls] var gid = inherit(root, "groupId")
-            [NonNls] val aid = XMLUtils.get(root, "artifactId")
-            [NonNls] var ver = inherit(root, "version")
-            if (gid == null) {
-                throw IllegalArgumentException("group cannot be null")
-            }
-            if (aid == null) {
-                throw IllegalArgumentException("artifact cannot be null")
-            }
-            if (ver == null) {
-                // @checkstyle MethodBodyCommentsCheck (2 lines)
-                // @checkstyle TodoCommentCheck (1 line)
-                // TODO: dependencyManagement/dependencies/dependency/version
-                throw UnsupportedOperationException(MessageFormat.format("Null version: {0}:{1}", gid, aid))
-            }
+            [NonNls] var gid = inherit(root, "groupId")!!
+            [NonNls] val aid = XMLUtils.get(root, "artifactId")!!
+            // TODO: dependencyManagement/dependencies/dependency/version
+            [NonNls] var ver = inherit(root, "version")!!
             if (context != null) {
-                gid = context.expand(gid!!.replace("\${project.groupId}", context.coordinate.group))
-                ver = context.expand(ver!!.replace("\${project.version}", context.coordinate.version))
+                gid = context.expand(gid.replace("\${project.groupId}", context.coordinate.group))
+                ver = context.expand(ver.replace("\${project.version}", context.coordinate.version))
             }
-            val coordinate = Coordinate[gid!!, aid, ver!!, null]
+            val coordinate = Coordinate[gid, aid, ver, null]
             val base: String
             try {
                 base = MavenResolver.resolve(coordinate)
