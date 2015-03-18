@@ -17,7 +17,6 @@ import java.util.concurrent.FutureTask
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.xml.parsers.ParserConfigurationException
-import org.jetbrains.annotations.NonNls
 import org.w3c.dom.Node
 import org.xml.sax.SAXException
 import java.net.URI
@@ -187,12 +186,7 @@ public class UrlResolveTask
          * @return A future representing that document
          */
         public fun makeFuture(document: String): Future<String> {
-            [SuppressWarnings("PMD.DoNotUseThreads")]
-            val future = FutureTask(object : Runnable {
-                SuppressWarnings("PMD.UncommentedEmptyMethod")
-                override fun run() {
-                }
-            }, document)
+            val future = FutureTask(Runnable { }, document)
             future.run()
             return future
         }
