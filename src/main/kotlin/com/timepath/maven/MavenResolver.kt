@@ -64,11 +64,11 @@ private class UrlCache : Cache<Coordinate, Future<String>>() {
     override fun fill(key: Coordinate): Future<String> {
         LOG.log(Level.INFO, MavenResolver.RESOURCE_BUNDLE.getString("resolve.url.miss"), key)
         [SuppressWarnings("HardcodedFileSeparator")] val sep = '/'
-        val str = sep + key.group.replace('.', sep) + sep + key.artifact + sep + key.version + sep
+        val str = "$sep${key.group.replace('.', sep)}$sep${key.artifact}$sep${key.version}$sep"
         var classifier = key.classifier
         val declassified = classifier == null || classifier!!.isEmpty()
         // @checkstyle AvoidInlineConditionalsCheck (1 line)
-        classifier = if (declassified) "" else ('-'.toString() + classifier)
+        classifier = if (declassified) "" else ("${'-'.toString()}$classifier")
         return MavenResolver.THREAD_POOL.submit<String>(UrlResolveTask(key, str, classifier!!))
     }
 }
@@ -171,7 +171,7 @@ public object MavenResolver {
     NonNls
     throws(javaClass<FileNotFoundException>())
     public fun resolve(coordinate: Coordinate, NonNls packaging: String): String? {
-        return resolve(coordinate) + '.' + packaging
+        return "${resolve(coordinate)}.$packaging"
     }
 
     /**

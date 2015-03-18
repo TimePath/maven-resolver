@@ -72,7 +72,7 @@ public class Package
          */
         override fun fill(key: String): String? {
             val existing = UpdateChecker.getFile(this@Package)
-            val checksum = File(existing.getParent(), existing.getName() + '.' + key)
+            val checksum = File(existing.getParent(), "${existing.getName()}.$key")
             if (checksum.exists()) {
                 // Avoid network
                 try {
