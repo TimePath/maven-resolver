@@ -11,7 +11,6 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.URLConnection
-import java.text.MessageFormat
 import java.util.Collections
 import java.util.HashMap
 import java.util.HashSet
@@ -202,7 +201,7 @@ public class Package
         if (this.name != null) {
             return this.name!!
         } else if (this.baseurl != null) {
-            return FileUtils.name(this.baseurl)
+            return this.baseurl!!.substringAfterLast('/')
         } else {
             return this.coordinate.toString()
         }

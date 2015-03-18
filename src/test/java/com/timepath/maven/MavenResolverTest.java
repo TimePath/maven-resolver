@@ -4,6 +4,7 @@ package com.timepath.maven;
 import com.timepath.maven.model.Coordinate;
 import java.io.FileNotFoundException;
 import java.util.prefs.BackingStoreException;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -33,10 +34,10 @@ public class MavenResolverTest {
      */
     @Test
     public final void testResolve() throws FileNotFoundException {
-        final String resolved = MavenResolver.INSTANCE$.resolve(
+        @NotNull final String resolved = MavenResolver.INSTANCE$.resolve(
                 Coordinate.OBJECT$.get("com.timepath", "launcher", "1.0-SNAPSHOT", null)
         );
-        final String str = "/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-";
+        @NotNull final String str = "/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-";
         Assert.assertTrue("Failed to resolve", resolved.contains(str));
     }
 }

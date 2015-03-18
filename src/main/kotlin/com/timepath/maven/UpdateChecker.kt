@@ -2,7 +2,6 @@
 package com.timepath.maven
 
 import com.timepath.FileUtils
-import com.timepath.maven.model.Coordinate
 import java.io.File
 import java.io.IOException
 import java.security.NoSuchAlgorithmException
@@ -145,7 +144,7 @@ private() {
          */
         public fun getFileName(pkg: Package): String {
             // TODO: avoid network where possible
-            return FileUtils.name(getDownloadURL(pkg))
+            return getDownloadURL(pkg).substringAfterLast('/')
         }
 
         /**
@@ -175,7 +174,7 @@ private() {
          * @return The local {@link java.io.File} containing the requested checksum
          */
         public fun getChecksumFile(pkg: Package, algorithm: String): File {
-            return File(getProgramDirectory(pkg), FileUtils.name(getChecksumURL(pkg, algorithm)))
+            return File(getProgramDirectory(pkg), getChecksumURL(pkg, algorithm).substringAfterLast('/'))
         }
     }
 
