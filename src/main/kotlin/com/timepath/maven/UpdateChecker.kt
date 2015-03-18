@@ -27,14 +27,7 @@ public class UpdateChecker
  */
 private() {
     class object {
-
-        /**
-         *
-         */
         public val RESOURCE_BUNDLE: ResourceBundle = ResourceBundle.getBundle(javaClass<UpdateChecker>().getName())
-        /**
-         *
-         */
         private val LOG = Logger.getLogger(javaClass<UpdateChecker>().getName())
 
         /**
@@ -43,9 +36,7 @@ private() {
          * @param pkg The package
          * @return True if matches SHA1 checksum
          */
-        public fun verify(pkg: Package): Boolean {
-            return verify(pkg, getFile(pkg))
-        }
+        public fun verify(pkg: Package): Boolean = verify(pkg, getFile(pkg))
 
         /**
          * Check the integrity of a single package.
@@ -113,7 +104,7 @@ private() {
             // @checkstyle TodoCommentCheck (1 line)
             // TODO: other package types
             // @checkstyle StringLiteralsConcatenationCheck (1 line)
-            return pkg.baseurl + ".jar"
+            return "${pkg.baseurl}.jar"
         }
 
         /**
@@ -124,7 +115,11 @@ private() {
          */
         public fun getProgramDirectory(pkg: Package): String {
             val coordinate = pkg.coordinate
-            return MessageFormat.format("{0}/{1}/{2}/{3}", MavenResolver.getLocal(), coordinate.group.replace('.', '/'), coordinate.artifact, coordinate.version)
+            return MessageFormat.format("{0}/{1}/{2}/{3}",
+                    MavenResolver.getLocal(),
+                    coordinate.group.replace('.', '/'),
+                    coordinate.artifact,
+                    coordinate.version)
         }
 
         /**
@@ -139,7 +134,7 @@ private() {
             // @checkstyle MethodBodyCommentsCheck (2 lines)
             // @checkstyle TodoCommentCheck (1 line)
             // TODO: other package types
-            return pkg.baseurl + ".jar." + algorithm.toLowerCase(Locale.ROOT)
+            return "${pkg.baseurl}.jar.${algorithm.toLowerCase(Locale.ROOT)}"
         }
 
         /**
@@ -149,8 +144,6 @@ private() {
          * @return The local {@link java.io.File} name of the package
          */
         public fun getFileName(pkg: Package): String {
-            // @checkstyle MethodBodyCommentsCheck (2 lines)
-            // @checkstyle TodoCommentCheck (1 line)
             // TODO: avoid network where possible
             return FileUtils.name(getDownloadURL(pkg))
         }
@@ -172,9 +165,7 @@ private() {
          * @param pkg The package
          * @return The local {@link java.io.File} for the given package
          */
-        public fun getFile(pkg: Package): File {
-            return File(getProgramDirectory(pkg), getFileName(pkg))
-        }
+        public fun getFile(pkg: Package): File = File(getProgramDirectory(pkg), getFileName(pkg))
 
         /**
          * Convenience.

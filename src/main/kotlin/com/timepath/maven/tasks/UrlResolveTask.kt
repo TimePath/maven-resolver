@@ -14,13 +14,13 @@ import java.util.ResourceBundle
 import java.util.concurrent.Callable
 import java.util.concurrent.Future
 import java.util.concurrent.FutureTask
-import java.util.concurrent.RunnableFuture
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.xml.parsers.ParserConfigurationException
 import org.jetbrains.annotations.NonNls
 import org.w3c.dom.Node
 import org.xml.sax.SAXException
+import java.net.URI
 
 // @checkstyle JavadocTagsCheck (5 lines)
 
@@ -91,8 +91,9 @@ public class UrlResolveTask
         if (!MavenResolver.POM_CACHE.getBackingMap().containsKey(this.key)) {
             // @checkstyle MethodBodyCommentsCheck (1 line)
             // Test it with the pom
-            val pom = IOUtils.requestPage(test + Constants.SUFFIX_POM)
-            if (pom == null) {
+            val pom = try {
+                URI(test + Constants.SUFFIX_POM).toURL().readText()
+            } catch(ignored: IOException) {
                 return null
             }
             // @checkstyle MethodBodyCommentsCheck (1 line)
@@ -119,8 +120,7 @@ public class UrlResolveTask
                 // TODO: Handle metadata when using REPO_LOCAL
                 return null
             }
-            val metadata = XMLUtils.rootNode(// @checkstyle StringLiteralsConcatenationCheck (1 line)
-                    IOUtils.openStream(base + "maven-metadata.xml"), "metadata")
+            val metadata = XMLUtils.rootNode(IOUtils.openStream("${base}maven-metadata.xml"), "metadata")
             // @checkstyle LineLengthCheck (1 line)
             val snapshot = XMLUtils.last<Node>(XMLUtils.getElements(metadata, "versioning/snapshot"))
             if (snapshot == null) {

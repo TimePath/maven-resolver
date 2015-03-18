@@ -1,7 +1,6 @@
 // @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.tasks
 
-import com.timepath.IOUtils
 import com.timepath.maven.MavenResolver
 import com.timepath.maven.model.Coordinate
 import java.io.FileNotFoundException
@@ -9,6 +8,8 @@ import java.util.ResourceBundle
 import java.util.concurrent.Callable
 import java.util.logging.Level
 import java.util.logging.Logger
+import java.net.URI
+import java.io.IOException
 
 // @checkstyle JavadocTagsCheck (5 lines)
 
@@ -30,17 +31,11 @@ public class PomResolveTask
         transient private val key: Coordinate) : Callable<String> {
 
     throws(javaClass<FileNotFoundException>())
-    override fun call(): String? {
-        val resolved = MavenResolver.resolve(this.key, "pom")
-        // @checkstyle AvoidInlineConditionalsCheck (1 line)
-        var pom: String? = null
-        if (resolved != null) {
-            pom = IOUtils.requestPage(resolved)
-        }
-        if (pom == null) {
-            LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), this.key)
-        }
-        return pom
+    override fun call() = try {
+        URI(MavenResolver.resolve(this.key, "pom")).toURL().readText()
+    } catch(ignored: IOException) {
+        LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), this.key)
+        null
     }
 
     class object {

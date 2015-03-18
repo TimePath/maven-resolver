@@ -1,10 +1,7 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.model
 
 import java.util.Locale
 import org.jetbrains.annotations.NonNls
-
-// @checkstyle JavadocTagsCheck (5 lines)
 
 /**
  * Represents package scope.
@@ -19,10 +16,9 @@ public enum class Scope
  * @param transitivity Whether this scope applies transitively
  */
 (
-        /**
-         * Whether the scope applies when depending on the package transitively.
-         */
-        private val transitive: Boolean = false) {
+        /** Whether the scope applies when depending on the package transitively. */
+        public val isTransitive: Boolean = false
+) {
     // @checkstyle TodoCommentCheck (1 line)
     // TODO: 'import' scope
     /**
@@ -54,27 +50,7 @@ public enum class Scope
          * @return The appropriate scope, or {@link #COMPILE}
          * @checkstyle WhitespaceAroundCheck (2 lines)
          */
-        public fun get(NonNls str: String?): Scope {
-            if (str != null) {
-                try {
-                    return valueOf(str.toUpperCase(Locale.ROOT))
-                    // @checkstyle EmptyBlockCheck (1 line)
-                } catch (ignored: IllegalArgumentException) {
-                }
-
-            }
-            return COMPILE
-        }
-    }
-
-    /**
-     * Get the transitivity; whether the scope applies when depending on the
-     * package transitively.
-     *
-     * @return The transitivity
-     */
-    public fun isTransitive(): Boolean {
-        return this.transitive
+        public fun get(NonNls str: String): Scope = valueOf(str.toUpperCase(Locale.ROOT))
     }
 
 }

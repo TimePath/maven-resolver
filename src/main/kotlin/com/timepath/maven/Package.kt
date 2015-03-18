@@ -2,7 +2,6 @@
 package com.timepath.maven
 
 import com.timepath.FileUtils
-import com.timepath.IOUtils
 import com.timepath.XMLUtils
 import com.timepath.maven.model.Coordinate
 import com.timepath.maven.model.Scope
@@ -23,12 +22,13 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
 import java.util.logging.Level
 import java.util.logging.Logger
-import java.util.regex.Pattern
 import javax.xml.parsers.ParserConfigurationException
 import javax.xml.transform.dom.DOMSource
 import org.jetbrains.annotations.NonNls
 import org.w3c.dom.Node
 import org.xml.sax.SAXException
+import java.net.URI
+import java.util.regex.MatchResult
 
 // @checkstyle LineLengthCheck (500 lines)
 // @checkstyle DesignForExtensionCheck (500 lines)
@@ -74,11 +74,18 @@ public class Package
             val existing = UpdateChecker.getFile(this@Package)
             val checksum = File(existing.getParent(), existing.getName() + '.' + key)
             if (checksum.exists()) {
-                // @checkstyle MethodBodyCommentsCheck (1 line)
                 // Avoid network
-                return IOUtils.requestPage(checksum.toURI().toString())
+                try {
+                    return checksum.toURI().toURL().readText()
+                } catch(ignored: IOException) {
+
+                }
             }
-            return IOUtils.requestPage(UpdateChecker.getChecksumURL(this@Package, key))
+            return try {
+                URI(UpdateChecker.getChecksumURL(this@Package, key)).toURL().readText()
+            } catch (ignored: IOException) {
+                null
+            }
         }
     }
     /**
@@ -151,7 +158,7 @@ public class Package
             key = key.toLowerCase(Locale.ROOT)
             if (key.startsWith(prefix)) {
                 val algorithm = key.substring(prefix.length())
-                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), array<Any>(algorithm, this))
+                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), array(algorithm, this))
                 this.checksums.put(algorithm, field.getValue()[0])
             }
         }
@@ -203,27 +210,21 @@ public class Package
 
     /**
      * Expands properties.
-     *
      * @param raw The raw text
      * @return The expanded property
      */
-    private fun expand(raw: String): String {
-        // @checkstyle MethodBodyCommentsCheck (2 lines)
-        // @checkstyle TodoCommentCheck (1 line)
-        // TODO: recursion
-        var str = raw
-        val matcher = Pattern.compile("\\$\\{(.*?)}").matcher(str)
-        while (matcher.find()) {
-            [NonNls] val property = matcher.group(1)
-            val properties = XMLUtils.getElements(this.pom, "properties")
-            val propertyNodes = properties.get(0)
-            for (node in XMLUtils.get(propertyNodes, Node.ELEMENT_NODE)) {
-                val value = node.getFirstChild().getNodeValue()
-                [NonNls] val target = "\${" + property + '}'
-                str = str.replace(target, value)
+    private fun expand(raw: String): String = raw.replaceAll("\\$\\{([^}]+)}") {(it: MatchResult): String ->
+        val property = it.group(1)
+        val propertyNodes = XMLUtils.getElements(this.pom, "properties").first()
+        XMLUtils.get(propertyNodes, Node.ELEMENT_NODE).forEach {
+            val s = it.getFirstChild().getNodeValue()
+            if (s == property) {
+                return@replaceAll s
             }
         }
-        return str
+        // TODO: recursion
+        LOG.warning("Cannot find pom property `$property`")
+        "\${$property}"
     }
 
     /**
@@ -236,12 +237,13 @@ public class Package
         val set = HashSet<Package>()
         set.add(this)
         try {
-            MavenResolver.resolvePomStream(this.coordinate)!!.use { `is` ->
-                if (`is` == null) {
-                    LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), this.coordinate)
-                    return set
-                }
-                this.pom = XMLUtils.rootNode(`is`, "project")
+            val stream = MavenResolver.resolvePomStream(this.coordinate)
+            if (stream == null) {
+                LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.pom"), this.coordinate)
+                return set
+            }
+            stream.use {
+                this.pom = XMLUtils.rootNode(it, "project")
                 val locals = this.parseDepsTrans()
                 for (entry in locals.entrySet()) {
                     try {
@@ -287,22 +289,16 @@ public class Package
             if (dep == null) {
                 continue
             }
-            if (java.lang.Boolean.parseBoolean(XMLUtils.get(depNode, "optional"))) {
+            if (XMLUtils.get(depNode, "optional").toBoolean()) {
                 continue
             }
-            if (!Scope[XMLUtils.get(depNode, "scope")].isTransitive()) {
+            if (!(XMLUtils.get(depNode, "scope")?.let { Scope[it] } ?: Scope.COMPILE).isTransitive) {
                 continue
             }
             synchronized (FUTURES) {
-                var future: Future<Set<Package>>? = FUTURES[dep.coordinate]
-                if (future == null) {
-                    // @checkstyle InnerAssignmentCheck (1 line)
-                    FUTURES.put(dep.coordinate, MavenResolver.THREAD_POOL.submit<Set<Package>>(DownloadResolveTask(dep, depNode)).let {
-                        future = it
-                        it
-                    })
-                }
-                locals.put(dep.coordinate, future)
+                locals.put(dep.coordinate, FUTURES.getOrPut(dep.coordinate) {
+                    MavenResolver.THREAD_POOL.submit(DownloadResolveTask(dep, depNode))
+                })
             }
         }
         return locals
@@ -315,17 +311,14 @@ public class Package
      */
     private fun parseDepsTrans(): Map<Coordinate, Future<Set<Package>>> {
         val trans = this.parseDeps()
-        for (entry in LinkedList<Future<Set<Package>>>(trans.values())) {
+        for (entry in LinkedList(trans.values())) {
             try {
-                for (aPackage in entry.get()) {
-                    trans.putAll(aPackage.parseDepsTrans())
-                }
+                entry.get().forEach { trans.putAll(it.parseDepsTrans()) }
             } catch (ignored: InterruptedException) {
                 LOG.severe("INTERRUPT")
             } catch (ignored: ExecutionException) {
                 LOG.severe("INTERRUPT")
             }
-
         }
         return trans
     }
@@ -375,17 +368,17 @@ public class Package
                 gid = context.expand(gid!!.replace("\${project.groupId}", context.coordinate.group))
                 ver = context.expand(ver!!.replace("\${project.version}", context.coordinate.version))
             }
-            val coordinate = Coordinate.from(gid!!, aid, ver!!, null)
+            val coordinate = Coordinate[gid!!, aid, ver!!, null]
             val base: String
             try {
-                base = MavenResolver.resolve(coordinate!!)
+                base = MavenResolver.resolve(coordinate)
                 LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), array(coordinate, base))
             } catch (ex: FileNotFoundException) {
                 LOG.log(Level.SEVERE, null, ex)
                 return null
             }
 
-            val pkg = Package(base, coordinate!!)
+            val pkg = Package(base, coordinate)
             pkg.name = XMLUtils.get(root, "name")
             return pkg
         }
@@ -400,25 +393,15 @@ public class Package
          */
         private fun inherit(root: Node, NonNls name: String): String? {
             val ret = XMLUtils.get(root, name)
-            if (ret == null) {
-                // @checkstyle MethodBodyCommentsCheck (1 line)
-                // Must be defined by a parent pom
-                var parent: Node? = null
-                try {
-                    parent = XMLUtils.last<Node>(XMLUtils.getElements(root, "parent"))
-                    // @checkstyle EmptyBlockCheck (1 line)
-                } catch (ignored: NullPointerException) {
-                }
-
-                if (parent == null) {
-                    // @checkstyle MethodBodyCommentsCheck (2 lines)
-                    // @checkstyle TodoCommentCheck (1 line)
-                    // TODO: transitive parent poms
-                    return null
-                }
-                return XMLUtils.get(parent, name)
+            ret?.let { return it }
+            // Must be defined by a parent pom
+            var parent: Node? = try {
+                XMLUtils.last<Node>(XMLUtils.getElements(root, "parent"))
+            } catch (ignored: NullPointerException) {
+                // TODO: transitive parent poms
+                return null
             }
-            return ret
+            return XMLUtils.get(parent, name)
         }
     }
 
