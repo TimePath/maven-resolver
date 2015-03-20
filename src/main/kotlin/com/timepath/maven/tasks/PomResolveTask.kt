@@ -32,7 +32,7 @@ public class PomResolveTask
 
     throws(javaClass<FileNotFoundException>())
     override fun call() = try {
-        URI(MavenResolver.resolve(this.key, "pom")).toURL().readText()
+        MavenResolver.resolve(this.key, "pom")!!.let { URI(it).toURL().readText() }
     } catch(ignored: IOException) {
         LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail"), this.key)
         null

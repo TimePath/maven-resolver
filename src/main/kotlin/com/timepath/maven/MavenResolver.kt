@@ -239,7 +239,7 @@ public object MavenResolver {
         if (pomFuture != null) {
             val pom = pomFuture.get()
             if (pom != null) {
-                return pom.getBytes(StandardCharsets.UTF_8)
+                return pom.toByteArray()
             }
         }
         return RESPONSE_EMPTY

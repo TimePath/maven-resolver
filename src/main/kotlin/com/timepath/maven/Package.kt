@@ -216,7 +216,7 @@ public class Package
 
     private fun expand(it: MatchResult): String {
         val property = it.group(1)
-        val propertyNodes = XMLUtils.getElements(this.pom, "properties").first()
+        val propertyNodes = XMLUtils.getElements(this.pom!!, "properties").first()
         XMLUtils.get(propertyNodes, Node.ELEMENT_NODE).forEach {
             val s = it.getFirstChild().getNodeValue()
             if (s == property) {
@@ -282,7 +282,7 @@ public class Package
      */
     private fun parseDeps(): MutableMap<Coordinate, Future<Set<Package>>> {
         val locals = HashMap<Coordinate, Future<Set<Package>>>()
-        for (depNode in XMLUtils.getElements(this.pom, "dependencies/dependency")) {
+        for (depNode in XMLUtils.getElements(this.pom!!, "dependencies/dependency")) {
             // @checkstyle MethodBodyCommentsCheck (2 lines)
             // @checkstyle TodoCommentCheck (1 line)
             // TODO: thread this potentially long call
@@ -290,7 +290,7 @@ public class Package
             if (dep == null) {
                 continue
             }
-            if (XMLUtils.get(depNode, "optional").toBoolean()) {
+            if (XMLUtils.get(depNode, "optional")?.toBoolean() ?: true) {
                 continue
             }
             if (!(XMLUtils.get(depNode, "scope")?.let { Scope[it] } ?: Scope.COMPILE).isTransitive) {
@@ -391,7 +391,7 @@ public class Package
                 // TODO: transitive parent poms
                 return null
             }
-            return XMLUtils.get(parent, name)
+            return XMLUtils.get(parent!!, name)
         }
     }
 
