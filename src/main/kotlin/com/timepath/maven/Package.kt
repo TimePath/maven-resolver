@@ -324,7 +324,7 @@ public class Package
         return trans
     }
 
-    class object {
+    companion object {
 
         /**
          * The logger.

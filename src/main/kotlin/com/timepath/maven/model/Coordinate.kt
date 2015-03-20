@@ -33,7 +33,7 @@ private(
         /** The classifier. */
         public NonNls val classifier: String?) {
 
-    class object {
+    companion object {
 
         /** The cache. */
         private val CACHE: MutableMap<String, Coordinate> = HashMap()

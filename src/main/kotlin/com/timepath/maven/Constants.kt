@@ -7,21 +7,14 @@ import org.jetbrains.annotations.NonNls
  *
  * @author TimePath
  */
-public class Constants
-/**
- *
- */
-private() {
-    class object {
+public object Constants {
 
-        NonNls
-        public val ALGORITHM: String = "sha1"
+    NonNls
+    public val ALGORITHM: String = "sha1"
 
-        NonNls
-        public val SUFFIX_POM: String = ".pom"
+    NonNls
+    public val SUFFIX_POM: String = ".pom"
 
-        NonNls
-        public val SUFFIX_SNAPSHOT: String = "-SNAPSHOT"
-    }
-
+    NonNls
+    public val SUFFIX_SNAPSHOT: String = "-SNAPSHOT"
 }

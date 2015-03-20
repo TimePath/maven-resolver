@@ -59,7 +59,7 @@ public class DownloadResolveTask
         return depDownloads
     }
 
-    class object {
+    companion object {
 
         /**
          * The logger.

@@ -111,7 +111,7 @@ public object MavenResolver {
     NonNls
     private val URL_CACHE = UrlCache()
 
-            ;{
+    init {
         val name = javaClass<MavenResolver>().getName()
         RESOURCE_BUNDLE = ResourceBundle.getBundle(name)
         RE_TRAILING_SLASH = Pattern.compile("/$")

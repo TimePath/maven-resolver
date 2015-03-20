@@ -163,7 +163,7 @@ public class UrlResolveTask
         return url
     }
 
-    class object {
+    companion object {
 
         /**
          *

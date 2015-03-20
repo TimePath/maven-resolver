@@ -42,7 +42,7 @@ public enum class Scope
      */
     RUNTIME : Scope()
 
-    class object {
+    companion object {
         /**
          * Convert a String to a Scope.
          *

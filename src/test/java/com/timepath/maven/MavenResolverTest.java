@@ -35,7 +35,7 @@ public class MavenResolverTest {
     @Test
     public final void testResolve() throws FileNotFoundException {
         @NotNull final String resolved = MavenResolver.INSTANCE$.resolve(
-                Coordinate.OBJECT$.get("com.timepath", "launcher", "1.0-SNAPSHOT", null)
+                Coordinate.Companion.get("com.timepath", "launcher", "1.0-SNAPSHOT", null)
         );
         @NotNull final String str = "/com/timepath/launcher/1.0-SNAPSHOT/launcher-1.0-";
         Assert.assertTrue("Failed to resolve", resolved.contains(str));

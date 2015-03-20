@@ -38,7 +38,7 @@ public class PomResolveTask
         null
     }
 
-    class object {
+    companion object {
 
         /**
          *
