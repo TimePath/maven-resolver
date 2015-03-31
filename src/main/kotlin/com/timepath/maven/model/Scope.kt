@@ -1,7 +1,7 @@
 package com.timepath.maven.model
 
-import java.util.Locale
 import org.jetbrains.annotations.NonNls
+import java.util.Locale
 
 /**
  * Represents package scope.

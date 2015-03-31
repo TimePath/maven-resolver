@@ -2,12 +2,13 @@
 package com.timepath.maven;
 
 import com.timepath.maven.model.Coordinate;
-import java.io.FileNotFoundException;
-import java.util.prefs.BackingStoreException;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.io.FileNotFoundException;
+import java.util.prefs.BackingStoreException;
 
 /**
  * Test resolver functionality.

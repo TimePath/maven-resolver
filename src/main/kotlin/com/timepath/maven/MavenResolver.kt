@@ -7,13 +7,9 @@ import com.timepath.maven.tasks.PomResolveTask
 import com.timepath.maven.tasks.UrlResolveTask
 import com.timepath.util.Cache
 import com.timepath.util.concurrent.DaemonThreadFactory
-import java.io.BufferedInputStream
-import java.io.ByteArrayInputStream
-import java.io.File
-import java.io.FileNotFoundException
-import java.io.InputStream
+import org.jetbrains.annotations.NonNls
+import java.io.*
 import java.net.MalformedURLException
-import java.nio.charset.StandardCharsets
 import java.text.MessageFormat
 import java.util.Collections
 import java.util.LinkedHashSet
@@ -25,7 +21,6 @@ import java.util.concurrent.Future
 import java.util.logging.Level
 import java.util.logging.Logger
 import java.util.regex.Pattern
-import org.jetbrains.annotations.NonNls
 
 // @checkstyle LineLengthCheck (500 lines)
 

@@ -4,12 +4,12 @@ package com.timepath.maven.tasks
 import com.timepath.maven.MavenResolver
 import com.timepath.maven.model.Coordinate
 import java.io.FileNotFoundException
+import java.io.IOException
+import java.net.URI
 import java.util.ResourceBundle
 import java.util.concurrent.Callable
 import java.util.logging.Level
 import java.util.logging.Logger
-import java.net.URI
-import java.io.IOException
 
 // @checkstyle JavadocTagsCheck (5 lines)
 

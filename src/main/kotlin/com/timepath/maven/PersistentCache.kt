@@ -2,11 +2,11 @@
 package com.timepath.maven
 
 import com.timepath.maven.model.Coordinate
+import org.jetbrains.annotations.NonNls
 import java.util.concurrent.TimeUnit
 import java.util.prefs.BackingStoreException
 import java.util.prefs.Preferences
 import java.util.regex.Pattern
-import org.jetbrains.annotations.NonNls
 
 // @checkstyle JavadocTagsCheck (5 lines)
 

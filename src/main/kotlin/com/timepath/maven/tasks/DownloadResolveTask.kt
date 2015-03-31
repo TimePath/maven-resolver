@@ -4,11 +4,11 @@ package com.timepath.maven.tasks
 import com.timepath.XMLUtils
 import com.timepath.maven.Package
 import com.timepath.maven.model.Exclusion
+import org.w3c.dom.Node
 import java.util.HashSet
 import java.util.concurrent.Callable
 import java.util.logging.Level
 import java.util.logging.Logger
-import org.w3c.dom.Node
 
 // @checkstyle JavadocTagsCheck (5 lines)
 

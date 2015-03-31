@@ -1,11 +1,11 @@
 // @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.model
 
+import org.jetbrains.annotations.NonNls
+import java.util.HashMap
 import java.util.ResourceBundle
 import java.util.logging.Level
 import java.util.logging.Logger
-import org.jetbrains.annotations.NonNls
-import java.util.HashMap
 
 /**
  * Represents a set of maven coordinates.

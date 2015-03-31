@@ -6,8 +6,12 @@ import com.timepath.maven.Constants
 import com.timepath.maven.MavenResolver
 import com.timepath.maven.PersistentCache
 import com.timepath.maven.model.Coordinate
+import org.jetbrains.annotations.NonNls
+import org.w3c.dom.Node
+import org.xml.sax.SAXException
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.net.URI
 import java.text.MessageFormat
 import java.util.ResourceBundle
 import java.util.concurrent.Callable
@@ -16,10 +20,6 @@ import java.util.concurrent.FutureTask
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.xml.parsers.ParserConfigurationException
-import org.w3c.dom.Node
-import org.xml.sax.SAXException
-import java.net.URI
-import org.jetbrains.annotations.NonNls
 
 /**
  * Task for resolving addresses of artifacts.

@@ -1,33 +1,27 @@
 // @checkstyle HeaderCheck (1 line)
 package com.timepath.maven
 
-import com.timepath.FileUtils
 import com.timepath.XMLUtils
 import com.timepath.maven.model.Coordinate
 import com.timepath.maven.model.Scope
 import com.timepath.maven.tasks.DownloadResolveTask
 import com.timepath.util.Cache
+import org.jetbrains.annotations.NonNls
+import org.w3c.dom.Node
+import org.xml.sax.SAXException
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.net.URI
 import java.net.URLConnection
-import java.util.Collections
-import java.util.HashMap
-import java.util.HashSet
-import java.util.LinkedList
-import java.util.Locale
-import java.util.ResourceBundle
+import java.util.*
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
 import java.util.logging.Level
 import java.util.logging.Logger
+import java.util.regex.MatchResult
 import javax.xml.parsers.ParserConfigurationException
 import javax.xml.transform.dom.DOMSource
-import org.jetbrains.annotations.NonNls
-import org.w3c.dom.Node
-import org.xml.sax.SAXException
-import java.net.URI
-import java.util.regex.MatchResult
 
 // @checkstyle LineLengthCheck (500 lines)
 // @checkstyle DesignForExtensionCheck (500 lines)
