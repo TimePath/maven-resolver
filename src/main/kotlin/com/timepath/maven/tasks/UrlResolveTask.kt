@@ -23,9 +23,6 @@ import javax.xml.parsers.ParserConfigurationException
 
 /**
  * Task for resolving addresses of artifacts.
- *
- * @author TimePath
- * @version $Id$
  */
 public class UrlResolveTask
 /**
@@ -34,7 +31,6 @@ public class UrlResolveTask
  * @param key The coordinate
  * @param fragment The fragment to append to the base URL
  * @param classifier The artifact classifier
- * @checkstyle HiddenFieldCheck (4 lines)
  */
 (
         /**
@@ -69,7 +65,6 @@ public class UrlResolveTask
     private fun resolve(NonNls repository: String): String? {
         val base = repository + this.fragment
         val snapshot = this.key.version.endsWith(Constants.SUFFIX_SNAPSHOT)
-        // @checkstyle AvoidInlineConditionalsCheck (2 lines)
         return if (snapshot)
             this.resolveSnapshot(base)
         else
@@ -82,18 +77,15 @@ public class UrlResolveTask
      * @param base The base URL
      * @return The full URL, or null
      */
-    SuppressWarnings("PMD.OnlyOneReturn")
     private fun resolveRelease(NonNls base: String): String? {
-        [NonNls] val test = MessageFormat.format("{0}{1}-{2}{3}", base, this.key.artifact, this.key.version, this.classifier)
-        if (!MavenResolver.POM_CACHE.getBackingMap().containsKey(this.key)) {
-            // @checkstyle MethodBodyCommentsCheck (1 line)
+        @NonNls val test = MessageFormat.format("{0}{1}-{2}{3}", base, this.key.artifact, this.key.version, this.classifier)
+        if (!MavenResolver.POM_CACHE.backingMap.containsKey(this.key)) {
             // Test it with the pom
             val pom = try {
                 URI(test + Constants.SUFFIX_POM).toURL().readText()
             } catch(ignored: IOException) {
                 return null
             }
-            // @checkstyle MethodBodyCommentsCheck (1 line)
             // Cache the pom since we already have it
             MavenResolver.POM_CACHE.put(this.key, makeFuture(pom))
         }
@@ -105,10 +97,7 @@ public class UrlResolveTask
      *
      * @param base The base URL
      * @return The full URL, or null
-     * @checkstyle WhitespaceAroundCheck (3 lines)
-     * @checkstyle ReturnCountCheck (2 lines)
      */
-    SuppressWarnings("PMD.OnlyOneReturn", "PMD.NPathComplexity")
     private fun resolveSnapshot(NonNls base: String): String? {
         try {
             if (base.startsWith("file:")) {
@@ -116,23 +105,19 @@ public class UrlResolveTask
                 return null
             }
             val metadata = XMLUtils.rootNode(IOUtils.openStream("${base}maven-metadata.xml"), "metadata")
-            val snapshot = XMLUtils.last<Node>(XMLUtils.getElements(metadata, "versioning/snapshot"))
-            if (snapshot == null) {
-                return null
-            }
+            val snapshot = XMLUtils.last<Node>(XMLUtils.getElements(metadata, "versioning/snapshot")) ?: return null
             val timestamp = XMLUtils.get(snapshot, "timestamp")
             val buildNumber = XMLUtils.get(snapshot, "buildNumber")
             val version = this.key.version
-            [NonNls] val versionNumber = version.substring(0, version.lastIndexOf(Constants.SUFFIX_SNAPSHOT))
-            // @checkstyle AvoidInlineConditionalsCheck (2 lines)
+            @NonNls val versionNumber = version.substring(0, version.lastIndexOf(Constants.SUFFIX_SNAPSHOT))
             val versionSuffix = if ((buildNumber == null))
                 Constants.SUFFIX_SNAPSHOT
             else
                 ""
-            return MessageFormat.format("{0}{1}-{2}{3}{4}{5}", base, this.key.artifact, versionNumber + versionSuffix, // @checkstyle AvoidInlineConditionalsCheck (2 lines)
+            return MessageFormat.format("{0}{1}-{2}{3}{4}{5}", base, this.key.artifact, versionNumber + versionSuffix,
                     if ((timestamp == null)) "" else ('-' + timestamp), if ((buildNumber == null)) "" else ('-' + buildNumber), this.classifier)
         } catch (ignored: FileNotFoundException) {
-            LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail.version"), array<Any>(this.key, base))
+            LOG.log(Level.WARNING, RESOURCE_BUNDLE.getString("resolve.pom.fail.version"), arrayOf(this.key, base))
         } catch (ex: IOException) {
             val msg = MessageFormat.format(RESOURCE_BUNDLE.getString("resolve.pom.fail"), this.key)
             LOG.log(Level.WARNING, msg, ex)

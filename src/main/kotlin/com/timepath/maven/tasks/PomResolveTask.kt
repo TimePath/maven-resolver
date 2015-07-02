@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.tasks
 
 import com.timepath.maven.MavenResolver
@@ -11,18 +10,13 @@ import java.util.concurrent.Callable
 import java.util.logging.Level
 import java.util.logging.Logger
 
-// @checkstyle JavadocTagsCheck (5 lines)
-
 /**
  * Task for resolving project files.
- *
- * @author TimePath
- * @version $Id$
  */
 public class PomResolveTask
 /**
  * Public ctor.
- * @param coordinate The key
+ * @param key The key
  */
 (
         /**
@@ -30,7 +24,7 @@ public class PomResolveTask
          */
         transient private val key: Coordinate) : Callable<String> {
 
-    throws(javaClass<FileNotFoundException>())
+    throws(FileNotFoundException::class)
     override fun call() = try {
         MavenResolver.resolve(this.key, "pom")!!.let { URI(it).toURL().readText() }
     } catch(ignored: IOException) {

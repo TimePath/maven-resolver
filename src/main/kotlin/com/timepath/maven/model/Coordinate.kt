@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.model
 
 import org.jetbrains.annotations.NonNls
@@ -9,8 +8,6 @@ import java.util.logging.Logger
 
 /**
  * Represents a set of maven coordinates.
- *
- * @author TimePath
  */
 public data class Coordinate
 /**
@@ -20,10 +17,8 @@ public data class Coordinate
  * @param artifact The artifact ID
  * @param version The version
  * @param classifier The classifier
- * @checkstyle HiddenFieldCheck (6 lines)
- * @checkstyle ParameterNumberCheck (2 lines)
  */
-private(
+private constructor(
         /** The group. */
         public NonNls val group: String,
         /** The artifact. */
@@ -50,7 +45,6 @@ private(
          * @param version The version
          * @param classifier The classifier
          * @return A reference
-         * @checkstyle ParameterNumberCheck (3 lines)
          */
         public fun get(group: String, artifact: String, version: String, classifier: String?): Coordinate {
             val str = "$group:$artifact:$version:$classifier"

@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven
 
 import com.timepath.XMLUtils
@@ -19,30 +18,19 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
 import java.util.logging.Level
 import java.util.logging.Logger
-import java.util.regex.MatchResult
 import javax.xml.parsers.ParserConfigurationException
 import javax.xml.transform.dom.DOMSource
-
-// @checkstyle LineLengthCheck (500 lines)
-// @checkstyle DesignForExtensionCheck (500 lines)
-// @checkstyle BracketsStructureCheck (500 lines)
-
-// @checkstyle JavadocTagsCheck (5 lines)
+import kotlin.text.MatchResult
 
 /**
  * Handles maven packages.
- *
- * @author TimePath
- * @version $Id$
  */
-SuppressWarnings("PMD")
 public class Package
 /**
  * Instantiates a new Package.
  *
  * @param baseurl The base URL
  * @param coordinate The coordinate object
- * @checkstyle HiddenFieldCheck (2 lines)
  */
 (
         /**
@@ -123,7 +111,6 @@ public class Package
      * A `self` package has updates downloaded into a different directory.
      *
      * @param self Requires special treatment
-     * @checkstyle HiddenFieldCheck (2 lines)
      */
     public fun setSelf(self: Boolean) {
         this.self = self
@@ -143,15 +130,14 @@ public class Package
      * @param connection The connection
      */
     public fun associate(connection: URLConnection) {
-        [NonNls] val prefix = "x-checksum-"
+        @NonNls val prefix = "x-checksum-"
         for (field in connection.getHeaderFields().entrySet()) {
-            // @checkstyle MethodBodyCommentsCheck (1 line)
             // Null keys! Using String.valueOf
-            [NonNls] var key = field.getKey().toString()
+            @NonNls var key = field.getKey().toString()
             key = key.toLowerCase(Locale.ROOT)
             if (key.startsWith(prefix)) {
                 val algorithm = key.substring(prefix.length())
-                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), array(algorithm, this))
+                LOG.log(Level.FINE, RESOURCE_BUNDLE.getString("checksum.associate"), arrayOf(algorithm, this))
                 this.checksums.put(algorithm, field.getValue()[0])
             }
         }
@@ -163,8 +149,6 @@ public class Package
      * @return All transitive packages, flattened. Includes self
      */
     public fun getDownloads(): Set<Package> {
-        // @checkstyle MethodBodyCommentsCheck (2 lines)
-        // @checkstyle TodoCommentCheck (1 line)
         // TODO: eager loading.
         if (this.downloads == null) {
             this.downloads = Collections.unmodifiableSet<Package>(this.initDownloads())
@@ -174,7 +158,7 @@ public class Package
 
     override fun hashCode(): Int {
         if (this.baseurl != null) {
-            return this.baseurl!!.hashCode()
+            return this.baseurl.hashCode()
         }
         LOG.log(Level.SEVERE, RESOURCE_BUNDLE.getString("null.url"), this)
         return 0
@@ -190,12 +174,11 @@ public class Package
         return this.baseurl == (other as Package).baseurl
     }
 
-    // @checkstyle ReturnCountCheck (2 lines)
     override fun toString(): String {
         if (this.name != null) {
             return this.name!!
         } else if (this.baseurl != null) {
-            return this.baseurl!!.substringAfterLast('/')
+            return this.baseurl.substringAfterLast('/')
         } else {
             return this.coordinate.toString()
         }
@@ -206,10 +189,10 @@ public class Package
      * @param raw The raw text
      * @return The expanded property
      */
-    private fun expand(raw: String): String = raw.replaceAll("\\$\\{([^}]+)}") { expand(it) }
+    private fun expand(raw: String): String = raw.replace("\\$\\{([^}]+)}".toRegex()) { expand(it) }
 
     private fun expand(it: MatchResult): String {
-        val property = it.group(1)
+        val property = it.groups[1]!!.value
         val propertyNodes = XMLUtils.getElements(this.pom!!, "properties").first()
         XMLUtils.get(propertyNodes, Node.ELEMENT_NODE).forEach {
             val s = it.getFirstChild().getNodeValue()
@@ -277,13 +260,8 @@ public class Package
     private fun parseDeps(): MutableMap<Coordinate, Future<Set<Package>>> {
         val locals = HashMap<Coordinate, Future<Set<Package>>>()
         for (depNode in XMLUtils.getElements(this.pom!!, "dependencies/dependency")) {
-            // @checkstyle MethodBodyCommentsCheck (2 lines)
-            // @checkstyle TodoCommentCheck (1 line)
             // TODO: thread this potentially long call
-            val dep = parse(depNode, this)
-            if (dep == null) {
-                continue
-            }
+            val dep = parse(depNode, this) ?: continue
             if (XMLUtils.get(depNode, "optional")?.toBoolean() ?: true) {
                 continue
             }
@@ -339,15 +317,14 @@ public class Package
          * @param root The root node
          * @param context The parent package
          * @return A new instance
-         * @checkstyle ExecutableStatementCountCheck (2 lines)
          */
         public fun parse(root: Node, context: Package?): Package? {
             val pprint = XMLUtils.pprint(DOMSource(root), 2)
             LOG.log(Level.FINER, RESOURCE_BUNDLE.getString("parse"), pprint)
-            [NonNls] var gid = inherit(root, "groupId")!!
-            [NonNls] val aid = XMLUtils.get(root, "artifactId")!!
+            @NonNls var gid = inherit(root, "groupId")!!
+            @NonNls val aid = XMLUtils.get(root, "artifactId")!!
             // TODO: dependencyManagement/dependencies/dependency/version
-            [NonNls] var ver = inherit(root, "version")!!
+            @NonNls var ver = inherit(root, "version")!!
             if (context != null) {
                 gid = context.expand(gid.replace("\${project.groupId}", context.coordinate.group))
                 ver = context.expand(ver.replace("\${project.version}", context.coordinate.version))
@@ -356,7 +333,7 @@ public class Package
             val base: String
             try {
                 base = MavenResolver.resolve(coordinate)
-                LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), array(coordinate, base))
+                LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolved"), arrayOf(coordinate, base))
             } catch (ex: FileNotFoundException) {
                 LOG.log(Level.SEVERE, null, ex)
                 return null
@@ -373,7 +350,6 @@ public class Package
          * @param root The root node
          * @param name The property to inherit
          * @return The final value
-         * @checkstyle ReturnCountCheck (3 lines)
          */
         private fun inherit(root: Node, NonNls name: String): String? {
             val ret = XMLUtils.get(root, name)

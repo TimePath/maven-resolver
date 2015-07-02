@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven
 
 import com.timepath.Utils
@@ -22,18 +21,9 @@ import java.util.logging.Level
 import java.util.logging.Logger
 import java.util.regex.Pattern
 
-// @checkstyle LineLengthCheck (500 lines)
-
-// @checkstyle JavadocTagsCheck (5 lines)
-
 /**
  * Utility class for resolving coordinates to urls.
- *
- * @author TimePath
- * @version $Id$
- * @checkstyle ClassDataAbstractionCouplingCheck (2 lines)
  */
-SuppressWarnings("PMD")
 
 val LOG = Logger.getLogger(javaClass<MavenResolver>().getName())
 
@@ -58,13 +48,12 @@ private class UrlCache : Cache<Coordinate, Future<String>>() {
 
     override fun fill(key: Coordinate): Future<String> {
         LOG.log(Level.INFO, MavenResolver.RESOURCE_BUNDLE.getString("resolve.url.miss"), key)
-        [SuppressWarnings("HardcodedFileSeparator")] val sep = '/'
+        val sep = '/'
         val str = "$sep${key.group.replace('.', sep)}$sep${key.artifact}$sep${key.version}$sep"
         var classifier = key.classifier
-        val declassified = classifier == null || classifier!!.isEmpty()
-        // @checkstyle AvoidInlineConditionalsCheck (1 line)
+        val declassified = classifier == null || classifier.isEmpty()
         classifier = if (declassified) "" else ("${'-'.toString()}$classifier")
-        return MavenResolver.THREAD_POOL.submit<String>(UrlResolveTask(key, str, classifier!!))
+        return MavenResolver.THREAD_POOL.submit<String>(UrlResolveTask(key, str, classifier))
     }
 }
 
@@ -72,8 +61,6 @@ public object MavenResolver {
 
     /**
      * Cache of coordinates to pom documents.
-     *
-     * @checkstyle AnonInnerLengthCheck (2 lines)
      */
     public val POM_CACHE: Cache<Coordinate, Future<String>> = PomCache()
     /**
@@ -87,30 +74,23 @@ public object MavenResolver {
     /**
      *
      */
-    private var REPOSITORIES: MutableCollection<String>
+    private val REPOSITORIES: MutableCollection<String> = LinkedHashSet<String>()
     /**
      *
      */
-    var RESOURCE_BUNDLE: ResourceBundle
+    val RESOURCE_BUNDLE = ResourceBundle.getBundle(javaClass<MavenResolver>().getName())
     /**
      *
      */
-    private var RE_TRAILING_SLASH: Pattern
+    private val RE_TRAILING_SLASH = "/$".toPattern()
 
     /**
      * Cache of coordinates to base urls.
-     *
-     * @checkstyle AnonInnerLengthCheck (4 lines)
      */
-    SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     NonNls
     private val URL_CACHE = UrlCache()
 
     init {
-        val name = javaClass<MavenResolver>().getName()
-        RESOURCE_BUNDLE = ResourceBundle.getBundle(name)
-        RE_TRAILING_SLASH = Pattern.compile("/$")
-        REPOSITORIES = LinkedHashSet<String>()
         addRepository("http://oss.jfrog.org/oss-snapshot-local")
         addRepository("http://repo.maven.apache.org/maven2")
         addRepository("http://repository.jetbrains.com/all")
@@ -133,7 +113,6 @@ public object MavenResolver {
      */
     public fun getLocal(): String {
         val local = File(Utils.currentFile(javaClass<MavenResolver>()).getParentFile(), "bin").getPath()
-        // @checkstyle MethodBodyCommentsCheck (1 line)
         //        local = System.getProperty(key, new File(System.getProperty("user.home"), ".m2/repository").getPath());
         return sanitize(local)
     }
@@ -164,7 +143,7 @@ public object MavenResolver {
      * @throws java.io.FileNotFoundException if unresolvable
      */
     NonNls
-    throws(javaClass<FileNotFoundException>())
+    throws(FileNotFoundException::class)
     public fun resolve(coordinate: Coordinate, NonNls packaging: String): String? {
         return "${resolve(coordinate)}.$packaging"
     }
@@ -176,7 +155,7 @@ public object MavenResolver {
      * @return The absolute basename of the project coordinate (without the packaging element)
      * @throws java.io.FileNotFoundException if unresolvable
      */
-    throws(javaClass<FileNotFoundException>())
+    throws(FileNotFoundException::class)
     public fun resolve(coordinate: Coordinate): String {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.url"), coordinate)
         try {
@@ -206,7 +185,7 @@ public object MavenResolver {
     public fun resolvePomStream(coordinate: Coordinate): InputStream? {
         try {
             val bytes = resolvePom(coordinate)
-            if (bytes.size != 0) {
+            if (bytes.size() != 0) {
                 return BufferedInputStream(ByteArrayInputStream(bytes))
             }
         } catch (ex: ExecutionException) {
@@ -225,9 +204,8 @@ public object MavenResolver {
      * @return POM as byte[], could be empty
      * @throws ExecutionException Never
      * @throws InterruptedException Never
-     * @checkstyle ThrowsCountCheck (3 lines)
      */
-    throws(javaClass<ExecutionException>(), javaClass<InterruptedException>())
+    throws(ExecutionException::class, InterruptedException::class)
     private fun resolvePom(coordinate: Coordinate): ByteArray {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("resolve.pom"), coordinate)
         val pomFuture = POM_CACHE[coordinate]

@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven
 
 import com.timepath.maven.model.Coordinate
@@ -8,13 +7,8 @@ import java.util.prefs.BackingStoreException
 import java.util.prefs.Preferences
 import java.util.regex.Pattern
 
-// @checkstyle JavadocTagsCheck (5 lines)
-
 /**
  * Centralised cache class.
- *
- * @author TimePath
- * @version $Id$
  */
 public object PersistentCache {
     /**
@@ -45,7 +39,7 @@ public object PersistentCache {
      *
      * @throws java.util.prefs.BackingStoreException If something went wrong
      */
-    throws(javaClass<BackingStoreException>())
+    throws(BackingStoreException::class)
     public fun drop() {
         for (key in PREFERENCES.keys()) {
             PREFERENCES.remove(key)
@@ -61,7 +55,6 @@ public object PersistentCache {
      *
      * @param key The coordinate
      * @return The valid cached value, or null if expired
-     * @checkstyle ReturnCountCheck (1 line)
      */
     public fun get(key: Coordinate): String? {
         val cached = getNode(key)
@@ -86,7 +79,6 @@ public object PersistentCache {
         cachedNode.putLong(CACHE_EXPIRES, future)
         try {
             cachedNode.flush()
-            // @checkstyle EmptyBlockCheck (1 line)
         } catch (ignored: BackingStoreException) {
         }
 

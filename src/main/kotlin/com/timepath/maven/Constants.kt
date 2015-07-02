@@ -4,8 +4,6 @@ import org.jetbrains.annotations.NonNls
 
 /**
  * Constants.
- *
- * @author TimePath
  */
 public object Constants {
 

@@ -14,10 +14,6 @@ import java.util.logging.Logger
 
 /**
  * Utility for keeping artifacts in sync.
- *
- * @checkstyle JavadocTagsCheck (1 line)
- * @author TimePath
- * @version $Id$
  */
 public object UpdateChecker {
     public val RESOURCE_BUNDLE: ResourceBundle = ResourceBundle.getBundle(javaClass<UpdateChecker>().getName())
@@ -37,9 +33,7 @@ public object UpdateChecker {
      * @param pkg The package
      * @param existing The existing file to check
      * @return True if matches SHA1 checksum
-     * @checkstyle ReturnCountCheck (3 lines)
      */
-    SuppressWarnings("PMD.OnlyOneReturn")
     public fun verify(pkg: Package, existing: File): Boolean {
         LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.check"), pkg)
         try {
@@ -47,10 +41,10 @@ public object UpdateChecker {
                 LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.missing"), existing)
                 return false
             }
-            [NonNls] val expected = getChecksum(pkg, Constants.ALGORITHM)
-            [NonNls] val actual = FileUtils.checksum(existing, Constants.ALGORITHM)
+            @NonNls val expected = getChecksum(pkg, Constants.ALGORITHM)
+            @NonNls val actual = FileUtils.checksum(existing, Constants.ALGORITHM)
             if (actual != expected) {
-                LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.mismatch"), array(existing, expected, actual))
+                LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("integrity.mismatch"), arrayOf(existing, expected, actual))
                 return false
             }
         } catch (ex: IOException) {
@@ -73,7 +67,7 @@ public object UpdateChecker {
      */
     public fun getUpdates(parent: Package): Set<Package> {
         val downloads = parent.getDownloads()
-        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("depends.all"), array(parent, downloads.toString()))
+        LOG.log(Level.INFO, RESOURCE_BUNDLE.getString("depends.all"), arrayOf(parent, downloads.toString()))
         val outdated = HashSet<Package>()
         for (child in downloads) {
             if (verify(child)) {
@@ -93,10 +87,7 @@ public object UpdateChecker {
      */
     NonNls
     public fun getDownloadURL(pkg: Package): String {
-        // @checkstyle MethodBodyCommentsCheck (2 line)
-        // @checkstyle TodoCommentCheck (1 line)
         // TODO: other package types
-        // @checkstyle StringLiteralsConcatenationCheck (1 line)
         return "${pkg.baseurl}.jar"
     }
 
@@ -124,8 +115,6 @@ public object UpdateChecker {
      */
     NonNls
     public fun getChecksumURL(pkg: Package, NonNls algorithm: String): String {
-        // @checkstyle MethodBodyCommentsCheck (2 lines)
-        // @checkstyle TodoCommentCheck (1 line)
         // TODO: other package types
         return "${pkg.baseurl}.jar.${algorithm.toLowerCase(Locale.ROOT)}"
     }

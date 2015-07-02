@@ -5,50 +5,45 @@ import java.util.Locale
 
 /**
  * Represents package scope.
- *
- * @author TimePath
- * @version $Id$
  */
 public enum class Scope
 /**
  * Construct a new scope with given transitivity.
  *
- * @param transitivity Whether this scope applies transitively
+ * @param isTransitive Whether this scope applies transitively
  */
 (
         /** Whether the scope applies when depending on the package transitively. */
         public val isTransitive: Boolean = false
 ) {
-    // @checkstyle TodoCommentCheck (1 line)
     // TODO: 'import' scope
     /**
      * Provided by platform.
      */
-    PROVIDED : Scope()
+    PROVIDED(),
     /**
      * Testing only.
      */
-    TEST : Scope()
+    TEST(),
     /**
      * Uses systemPath.
      */
-    SYSTEM : Scope()
+    SYSTEM(),
     /**
      * Compiled in, definitely required.
      */
-    COMPILE : Scope(true)
+    COMPILE(true),
     /**
      * Used during execution.
      */
-    RUNTIME : Scope()
+    RUNTIME();
 
     companion object {
         /**
          * Convert a String to a Scope.
          *
          * @param str The scope string
-         * @return The appropriate scope, or {@link #COMPILE}
-         * @checkstyle WhitespaceAroundCheck (2 lines)
+         * @return The appropriate scope, or [COMPILE]
          */
         public fun get(NonNls str: String): Scope = valueOf(str.toUpperCase(Locale.ROOT))
     }

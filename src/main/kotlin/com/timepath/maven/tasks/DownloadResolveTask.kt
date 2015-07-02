@@ -1,4 +1,3 @@
-// @checkstyle HeaderCheck (1 line)
 package com.timepath.maven.tasks
 
 import com.timepath.XMLUtils
@@ -10,12 +9,8 @@ import java.util.concurrent.Callable
 import java.util.logging.Level
 import java.util.logging.Logger
 
-// @checkstyle JavadocTagsCheck (5 lines)
-
 /**
  * Download resolve task.
- *
- * @author TimePath
  */
 public class DownloadResolveTask
 /**
@@ -23,7 +18,6 @@ public class DownloadResolveTask
  *
  * @param pkg The package
  * @param data A dependency node
- * @checkstyle HiddenFieldCheck (2 lines)
  */
 (
         /**
@@ -35,13 +29,11 @@ public class DownloadResolveTask
          */
         transient private val data: Node) : Callable<Set<Package>> {
 
-    SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
-    throws(javaClass<Exception>())
+    throws(Exception::class)
     override fun call(): Set<Package> {
         val depDownloads = HashSet<Package>()
         try {
-            // @checkstyle IndentationCheck (1 line)
-            @transitives for (depDownload in this.pkg.getDownloads()) {
+            transitives@ for (depDownload in this.pkg.getDownloads()) {
                 for (exNode in XMLUtils.getElements(this.data, "exclusions/exclusion")) {
                     val exclusion = Exclusion(exNode)
                     if (exclusion.matches(depDownload)) {
